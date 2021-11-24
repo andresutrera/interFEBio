@@ -41,4 +41,4 @@ The xplt class contains:
 ## The implementation is still very rudimentary ##
 ## TODO ##
  1. Improve the overall structure of the xplt class
- 2. Implement some additional methods or functions to help the usage of the xplr reader.
+ 2. Implement some additional methods or functions to help the usage of the xplt reader.

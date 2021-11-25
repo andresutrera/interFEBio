@@ -731,7 +731,7 @@ class xplt:
                 if(status != 0):
                     break
             except:
-                print("FAILEDD")
+                #print("FAILEDD")
                 break
         self.readMode = 'readAllStates'
 

@@ -346,11 +346,9 @@ class xplt:
                 a = self.reader.search_block('PLT_SURFACE_MAX_FACET_NODES')
                 face_max_facet_nodes = (struct.unpack('I', self.reader.read())[0])
                 if (self.reader.check_block('PLT_FACE_LIST') == 0):
-                    #print("NOT CHECKEDDDDDDDDDDDDDDDDDDDDDd")
                     continue
                 else:
                     a = self.reader.search_block('PLT_FACE_LIST')
-                    #print("CHECKEDDDDDDDDDDDDDDDDDDDDDd")
                 facesDict = dict()
                 while self.reader.check_block('PLT_FACE'):
                     a = self.reader.search_block('PLT_FACE')
@@ -562,23 +560,27 @@ class xplt:
 
     def readState(self):
 
+        var = 0
+
         dataDim = {'FLOAT' : 1, 'VEC3F' : 3, 'MAT3FD' : 3, 'MAT3FS' : 6, 'MAT3F' : 9, 'TENS4FS' : 21}
 
         # # now extract the information from the desired state
         a = self.reader.search_block('PLT_STATE')
         a = self.reader.search_block('PLT_STATE_HEADER')
-        a = self.reader.search_block('PLT_STATE_HDR_ID')
+        # a = self.reader.search_block('PLT_STATE_HDR_ID')
         # stateID = struct.unpack('I', self.reader.read())[0]
         # print(stateID)
 
         a = self.reader.search_block('PLT_STATE_HDR_TIME')
         stateTime = struct.unpack('f', self.reader.read())[0]
-        self.time.append(stateTime)
+
 
         a = self.reader.search_block('PLT_STATE_STATUS')
-        stateStatus = struct.unpack('f', self.reader.read())[0] #What is state status?
-
-
+        stateStatus = struct.unpack('I', self.reader.read())[0] #What is state status?
+        #print("STATSTATUS",stateStatus)
+        if(stateStatus != 0):
+            return 1
+        self.time.append(stateTime)
         n_node_data = 0
         item_def_doms = []
         a = self.reader.search_block('PLT_STATE_DATA')
@@ -593,7 +595,8 @@ class xplt:
 
             a_end = self.reader.file.tell() + a
 
-            dictKey = list(self.dictionary.keys())[varID-1]
+            #dictKey = list(self.dictionary.keys())[varID-1]
+            dictKey = list(self.dictionary.keys())[var]
             #print(dictKey)
             varDataDim = (dataDim[self.dictionary[dictKey]['type']])
             def_doms = []
@@ -609,13 +612,14 @@ class xplt:
                 #print(dom_num,data_size,n_data)
                 #print('number of node data for domain %s = %d' % (dom_num, n_data))
                 if n_data > 0:
-                    elem_data = np.zeros([n_data, varDataDim])
+                    elem_data = zeros([n_data, varDataDim])
                     for i in range(0, n_data):
                         for j in range(0, varDataDim):
                             elem_data[i, j] = struct.unpack('f', self.reader.read())[0]
                 domainData.append(elem_data)
                 #domainData = np.append(domainData,elem_data)
             self.results[dictKey].append(domainData)
+            var+=1
             #self.results[dictKey] = np.append(self.results[dictKey],domainData)
                 #print(elem_data)
 
@@ -634,7 +638,8 @@ class xplt:
 
             a_end = self.reader.file.tell() + a
 
-            dictKey = list(self.dictionary.keys())[varID-1]
+            #dictKey = list(self.dictionary.keys())[varID-1]
+            dictKey = list(self.dictionary.keys())[var]
             #print(dictKey)
             varDataDim = (dataDim[self.dictionary[dictKey]['type']])
             def_doms = []
@@ -660,6 +665,7 @@ class xplt:
 
             item_def_doms.append(def_doms)
             self.results[dictKey].append(domainData)
+            var+=1
             #self.results[dictKey] = np.append(self.results[dictKey],domainData)
 
 
@@ -667,14 +673,16 @@ class xplt:
         while self.reader.check_block('PLT_STATE_VARIABLE'):
             a = self.reader.search_block('PLT_STATE_VARIABLE')
             a = self.reader.search_block('PLT_STATE_VAR_ID')
-            varID = struct.unpack('I', self.reader.read())[0]+self.dictNodal+self.dictItem
-            #print(varID)
+            varID = struct.unpack('I', self.reader.read())[0]
+            #print(varID,self.dictNodal,self.dictItem)
+
 
             a = self.reader.search_block('PLT_STATE_VAR_DATA')
 
             a_end = self.reader.file.tell() + a
 
-            dictKey = list(self.dictionary.keys())[varID-1]
+            #dictKey = list(self.dictionary.keys())[varID-1]
+            dictKey = list(self.dictionary.keys())[var]
             #print(dictKey)
             varDataDim = (dataDim[self.dictionary[dictKey]['type']])
             #print(varDataDim)
@@ -697,23 +705,33 @@ class xplt:
                             elem_data[i, j] = struct.unpack('f', self.reader.read())[0]
                 #domainData = np.append(domainData,elem_data)
                 domainData.append(elem_data)
+                #print(domainData)
                 #domainData = np.array(domainData)
                 #print(elem_data)
 
             item_def_doms.append(def_doms)
 
             self.results[dictKey].append(domainData)
+            var+=1
             #self.results[dictKey] = np.append(self.results[dictKey],domainData)
+        return 0
 
 
     def readAllStates(self):
         if(self.readMode) == 'readSteps':
             sys.exit("readAllStates is not compatible with readSteps[list]!")
+        i=1
         while (1):
             try:
-                self.readState()
+                #print(i)
+
+                status = self.readState()
+                #print(i,status)
+                i+=1
+                if(status != 0):
+                    break
             except:
-                #print("FAILEDD")
+                print("FAILEDD")
                 break
         self.readMode = 'readAllStates'
 

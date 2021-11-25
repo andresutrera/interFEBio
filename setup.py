@@ -15,8 +15,8 @@ setup(
     author_email = 'andres.utrera@usach.cl',
     license = 'MIT',
     package_data = {'febio': ['examples/*'],},
-    #url = 'https://github.com/siboles/pyFEBio',
-    #download_url = 'https://github.com/siboles/pyFEBio/tarball/0.1.3',
+    url = 'https://github.com/andresutrera/interFEBio',
+    #download_url = 'https://github.com/andresutrera/interFEBio/....',
     description = 'Python interface for FEBio',
     install_requires = [
         "numpy",],

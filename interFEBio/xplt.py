@@ -1,13 +1,11 @@
 """
-read_xplt.py
+xplt.py
 
-Read FEBIO's xplt format and output the node/element data.
+Read FEBio xplt binary data
 
-Ref: http://mrldata.sci.utah.edu/data/FEBioBinaryDatabaseSpecification.pdf
+https://github.com/febiosoftware/FEBio/blob/master/Documentation/FEBioBinaryDatabaseSpecification.pdf
 
 """
-
-#
 
 import struct
 import numpy as np
@@ -120,30 +118,22 @@ class binaryReader:
     def read(self,bytes=4):
         return self.file.read(bytes)
 
-    def search_block(self, BLOCK_TAG, max_depth=15, cur_depth=0,
-                     verbose=0, inv_TAGS=0, print_tag=0):
-        '''Search some block in the current level.'''
+    def search_block(self, BLOCK_TAG, max_depth=15, cur_depth=0,verbose=0, inv_TAGS=0, print_tag=0):
 
-        # record the initial cursor position
         if cur_depth == 0:
             ini_pos = self.file.tell()
-
         if cur_depth > max_depth:
             if verbose == 1:
                 print('Max iteration reached: Cannot find ',BLOCK_TAG)
             return -1
-
         buf = self.file.read(4)
-
         if buf == b'':
             if verbose == 1:
                 print('EOF: Cannot find ',BLOCK_TAG)
             return -1
         else:
             cur_id = struct.unpack('I', buf)[0]
-
         a = struct.unpack('I', self.file.read(4))[0]  # size of the block
-
         if verbose == 1:
             cur_id_str = '0x' + '{0:08x}'.format(cur_id)
             # print 'cur_ID: ' + cur_id_str
@@ -152,17 +142,13 @@ class binaryReader:
                 #print('size:', a)
             except:
                 pass
-
         if(int(self.tags[BLOCK_TAG], base=16) == cur_id):
             if print_tag == 1:
                 print(BLOCK_TAG)
-
             return a
         else:
             self.file.seek(a, 1)
-            d = self.search_block(BLOCK_TAG, cur_depth=cur_depth + 1,
-                             verbose=verbose,
-                             print_tag=print_tag)
+            d = self.search_block(BLOCK_TAG, cur_depth=cur_depth + 1,verbose=verbose,print_tag=print_tag)
             if d == -1:
                 # put the cursor position back
                 if cur_depth == 0:
@@ -171,32 +157,24 @@ class binaryReader:
             else:
                 return d
 
-
     def check_block(self,BLOCK_TAG, filesize=-1):
         '''Check if the BLOCK TAG exists immediately after the file cursor.'''
-
         if filesize > 0:
             if self.file.tell() + 4 > filesize:
                 print("EOF reached")
                 return 0
-
         buf = struct.unpack('I', self.file.read(4))[0]
         self.file.seek(-4, 1)
-
         if(int(self.tags[BLOCK_TAG], base=16) == buf):
             return 1
-
         return 0
 
-
-    def seek_block(BLOCK_TAG):
+    def seek_block(self,BLOCK_TAG):
         if(int(self.tags[BLOCK_TAG], base=16) == struct.unpack('I', self.file.read(4))[0]):
-            print('%s' % BLOCK_TAG)
+            pass
+            #print('%s' % BLOCK_TAG)
         a = struct.unpack('I', self.file.read(4))  # size of the root section
-
         return a[0]
-
-
 
 class mesh:
     def __init__(self):
@@ -212,12 +190,8 @@ class mesh:
         totalElementDict = dict()
         for key in self.domain.keys():
             for elem in self.domain[key]['elements']:
-
                 totalElementDict[elem] = self.domain[key]['elements'][elem]
-
         return totalElementDict
-
-
 
 
 class xplt:
@@ -225,8 +199,8 @@ class xplt:
         self.rigidDictionary = dict()
         self.time = []
         self.reader = binaryReader(filename)
+        self.readMode = ''
         self.read_xplt(filename)
-
 
     def listRegions(self):
         return [x for x in self.mesh.parts.keys()]
@@ -507,6 +481,7 @@ class xplt:
         self.results = dict()
 
         for key in self.dictionary.keys():
+            #self.results[key] = np.array([])
             self.results[key] = []
 
         self.dictNodal = (sum(np.fromiter((1 for v in self.dictionary.values() if v['format'] == 'NODE') ,dtype=int)))
@@ -546,8 +521,6 @@ class xplt:
         a = self.reader.search_block('PLT_DIC_ITEM_FMT')
         itemFmt = struct.unpack('I', self.reader.read())[0]
 
-
-
         self.rigidDictionary[objID] = { 'name' : objName,
                                         'tag' : objTAG,
                                         'pos' : [objPOSX,objPOSY,objPOSZ],
@@ -555,6 +528,37 @@ class xplt:
                                         'itemType' : itemType,
                                         'itemFmt' : itemFmt
                                     }
+
+    def skipState(self):
+        a = self.reader.seek_block('PLT_STATE')
+        self.reader.read(a)
+
+    def readSteps(self,stepList):
+        if(self.readMode == 'readAllStates'):
+            sys.exit("readSteps[list] is not compatible with readAllStates function")
+
+        for i in range(len(stepList)):
+            if(i == 0):
+                stepDiff = stepList[i]
+            else:
+                stepDiff = stepList[i] - stepList[i-1]
+            print(stepDiff)
+            if(i>0):
+                stepDiff-=1
+
+            for skip in range(stepDiff):
+                try:
+                    self.skipState()
+                except:
+                    sys.exit("*******************************\n\n"+"Error: No more steps to skip!!!\n\n"+"*******************************")
+            self.readState()
+        self.readMode = 'readSteps'
+            #try:
+            #    self.skipState()
+            #except:
+            #    sys.error("No more states to skip")
+        #self.readState()
+
 
     def readState(self):
 
@@ -593,6 +597,7 @@ class xplt:
             #print(dictKey)
             varDataDim = (dataDim[self.dictionary[dictKey]['type']])
             def_doms = []
+            #domainData = np.array([])
             domainData = []
             while(self.reader.file.tell() < a_end):
                 dom_num = struct.unpack('I', self.reader.read())[0]
@@ -604,13 +609,16 @@ class xplt:
                 #print(dom_num,data_size,n_data)
                 #print('number of node data for domain %s = %d' % (dom_num, n_data))
                 if n_data > 0:
-                    elem_data = zeros([n_data, varDataDim])
+                    elem_data = np.zeros([n_data, varDataDim])
                     for i in range(0, n_data):
                         for j in range(0, varDataDim):
                             elem_data[i, j] = struct.unpack('f', self.reader.read())[0]
                 domainData.append(elem_data)
+                #domainData = np.append(domainData,elem_data)
             self.results[dictKey].append(domainData)
+            #self.results[dictKey] = np.append(self.results[dictKey],domainData)
                 #print(elem_data)
+
 
             item_def_doms.append(def_doms)
         #print(item_def_doms)
@@ -631,6 +639,7 @@ class xplt:
             varDataDim = (dataDim[self.dictionary[dictKey]['type']])
             def_doms = []
             domainData = []
+            #domainData = np.array([])
             while(self.reader.file.tell() < a_end):
                 dom_num = struct.unpack('I', self.reader.read())[0]
                 data_size = struct.unpack('I', self.reader.read())[0]
@@ -646,10 +655,12 @@ class xplt:
                         for j in range(0, varDataDim):
                             elem_data[i, j] = struct.unpack('f', self.reader.read())[0]
                 domainData.append(elem_data)
+                #domainData = np.append(domainData,elem_data)
                 #print(elem_data)
 
             item_def_doms.append(def_doms)
             self.results[dictKey].append(domainData)
+            #self.results[dictKey] = np.append(self.results[dictKey],domainData)
 
 
         a = self.reader.search_block('PLT_FACE_DATA')
@@ -668,7 +679,8 @@ class xplt:
             varDataDim = (dataDim[self.dictionary[dictKey]['type']])
             #print(varDataDim)
             def_doms = []
-            domainData = dict()
+            domainData = []
+            #domainData = np.array([])
             while(self.reader.file.tell() < a_end):
                 dom_num = struct.unpack('I', self.reader.read())[0]
                 data_size = struct.unpack('I', self.reader.read())[0]
@@ -683,21 +695,32 @@ class xplt:
                     for i in range(0, n_data):
                         for j in range(0, varDataDim):
                             elem_data[i, j] = struct.unpack('f', self.reader.read())[0]
-                domainData[dom_num] = elem_data
+                #domainData = np.append(domainData,elem_data)
+                domainData.append(elem_data)
+                #domainData = np.array(domainData)
                 #print(elem_data)
 
             item_def_doms.append(def_doms)
+
             self.results[dictKey].append(domainData)
+            #self.results[dictKey] = np.append(self.results[dictKey],domainData)
 
 
-    def readAllResults(self):
+    def readAllStates(self):
+        if(self.readMode) == 'readSteps':
+            sys.exit("readAllStates is not compatible with readSteps[list]!")
         while (1):
             try:
                 self.readState()
             except:
                 #print("FAILEDD")
                 break
+        self.readMode = 'readAllStates'
 
+    def clearDict(self):
+        for key in self.results:
+            self.results[key] = np.array(self.results[key])
+            #print(self.results[key].shape)
 
     def read_xplt(self,filename):
 

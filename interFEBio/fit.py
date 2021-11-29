@@ -240,8 +240,19 @@ class fit:
         print("***********************************")
 
         for key in self.pid:
-            parent = psutil.Process(self.pid[key])
+            try:
+                parent = psutil.Process(self.pid[key])
+            except:
+                continue
             for child in parent.children(recursive=True):  # or parent.children() for recursive=False
-                child.kill()
-            parent.kill()
+                try:
+                    child.kill()
+                except:
+                    print("Child process no longer exists.")
+                    continue
+            try:
+                parent.kill()
+            except:
+                print("Parent process no longer exists.")
+                continue
         sys.exit(0)

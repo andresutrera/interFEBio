@@ -15,9 +15,9 @@ from scipy.ndimage import interpolation
 import signal
 
 class caso:
-    parameters = []
 
     def __init__(self,modelName,matID,subFolder,expData,simFcn):
+
         self.modelName = modelName
         self.modelBinary = modelName.split('.feb')[0]+'.xplt'
         self.matID = matID
@@ -25,6 +25,7 @@ class caso:
         self.expData = expData
         self.current_directory = os.getcwd()
         self.simFcn = simFcn
+        self.parameters = []
 
     def addParameter(self,param):
         self.parameters.append(param)
@@ -101,6 +102,12 @@ class caso:
 
 
 class fit:
+    '''
+    Class that handles the numerical fitting algotirm.
+    This class is based on lmfit library.
+
+    '''
+
 
     casos = dict()
     exp = dict()
@@ -120,6 +127,23 @@ class fit:
         self.pid = dict()
 
     def addCase(self,name,matID,modelName,subFolder,expData,simFcn):
+        '''
+        Add a simulation to the fitting algorithm.
+
+        Args:
+        ----------
+
+            modelName (str): Name of the .feb model
+
+            matID (int/str): id/name of the material to be fitted. A fitting based on more than one simulation could have different material ID at each .feb file.
+
+            subFolder (str): Sub folder to store the simulation at each iter.
+
+            expData (np array): Array of x,y experimental data associated with the current simulation.
+
+            simFcn (fuinction): Function that handles the result calculation of the simulation. Needs to be written in terms of the xplt class functions.
+
+        '''
         self.casos[name] = caso(modelName,matID,subFolder,expData,simFcn)
 
     def updateParamList(self):
@@ -219,6 +243,19 @@ class fit:
         self.iter = iter+3
 
     def optimize(self,**kwargs):
+        '''
+        Optimize.
+
+        This function start the optimization algorithm.
+        The residual is calculated from the simulation (using the external function provided for the case), and compare those results with the experimental data provided.
+
+
+        kwargs:
+        ----------
+
+            kwargs for the lmfit.minimize function.
+            >>> optimize(method='basinhopping')
+        '''
         self.updateParamList()
         self.mi = lmfit.minimize(self.residual,
                             self.p,

@@ -6,3 +6,5 @@ from .Boundary import Boundary
 from .Control import Control
 from .Model import Model
 from .Load import Load
+from .fit import fit
+from .xplt import xplt

@@ -1,3 +1,17 @@
+"""
+This module allows to execute flexible fitting procedures, with full control
+of the fitting method, variables, calculations and experimental data formats.
+
+# TODO
+
+- LMFIT library works on serial numerical approximations to obtain a jacobian,
+     however, when the residual function is time expensive, the fitting process
+     is too long. A parallel jacobian calculation is implemented, but it is quite rudimental,
+     so is disabled in the source code by now.
+
+
+"""
+
 import numpy as np
 import lmfit
 from scipy.interpolate import interp1d
@@ -14,7 +28,8 @@ import interFEBio
 from scipy.ndimage import interpolation
 import signal
 
-class caso:
+
+class _caso:
 
     def __init__(self,modelName,matID,subFolder,expData,simFcn):
 
@@ -107,13 +122,6 @@ class fit:
     This class is based on lmfit library.
 
     '''
-
-
-    casos = dict()
-    exp = dict()
-    done = 0
-    thisIter = 0
-    disp1 = dict()
     def __init__(self):
         self.iter = 1
         self.p = lmfit.Parameters()
@@ -123,30 +131,37 @@ class fit:
         current_date = datetime.today().strftime('%d-%m-%Y')
         self.logfileName = 'log_'+current_date+'_'+current_time+'.txt'
         self.len1 = dict()
-        signal.signal(signal.SIGINT, self.signal_handler)
+        signal.signal(signal.SIGINT, self._signal_handler)
         self.pid = dict()
+
+        self.casos = dict()
+        self.exp = dict()
+        self.done = 0
+        self.thisIter = 0
+        self.disp1 = dict()
 
     def addCase(self,name,matID,modelName,subFolder,expData,simFcn):
         '''
-        Add a simulation to the fitting algorithm.
+        Add a simulation to the fitting algorithm, including all the experimental data
+        and how to obtain numerical results for this xplt file.
 
         Args:
         ----------
 
             modelName (str): Name of the .feb model
 
-            matID (int/str): id/name of the material to be fitted. A fitting based on more than one simulation could have different material ID at each .feb file.
+            matID (int/str): id/name of the material to be fitted in that particular .feb file
 
-            subFolder (str): Sub folder to store the simulation at each iter.
+            subFolder (str): Sub folder to store the simulation at each iteration.
 
             expData (np array): Array of x,y experimental data associated with the current simulation.
 
             simFcn (fuinction): Function that handles the result calculation of the simulation. Needs to be written in terms of the xplt class functions.
 
         '''
-        self.casos[name] = caso(modelName,matID,subFolder,expData,simFcn)
+        self.casos[name] = _caso(modelName,matID,subFolder,expData,simFcn)
 
-    def updateParamList(self):
+    def _updateParamList(self):
         #os.environ['OMP_NUM_THR        # for par in pars.keys():
         #     if p[par].expr == None:
         #         paramPath = os.path.join(simDir, par)
@@ -157,7 +172,7 @@ class fit:
             for caso in self.casos:
                 self.casos[caso].addParameter(key)
 
-    def run(self,caso,dh):
+    def _run(self,caso,dh):
 
         if(dh == ''):
             p = subprocess.Popen(["febio3 -i "+self.casos[caso].modelName],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iter'+str(self.iter),self.casos[caso].subFolder)+'/')
@@ -170,12 +185,12 @@ class fit:
         p.wait()
         #sys.exit()
 
-    def expToFunction(self):
+    def _expToFunction(self):
         self.expfcn = dict()
         for caso in self.casos:
             self.expfcn[caso] = interp1d(self.casos[caso].expData[:,0], self.casos[caso].expData[:,1],fill_value='extrapolate')
 
-    def statistics(self,p):
+    def _statistics(self,p):
         parameters = dict(p.valuesdict())
         self.r2 = dict()
         for case in self.casos:
@@ -197,7 +212,7 @@ class fit:
         self.logfile.close()
 
 
-    def residual(self,p):
+    def _residual(self,p):
         parameter = dict(p.valuesdict())
         for caso in self.casos:
             self.casos[caso].verifyFolders(self.iter,p)
@@ -205,7 +220,7 @@ class fit:
         #if(self.thisIter != self.iter):
         z = []
         for caso in self.casos:
-            t = threading.Thread(target=self.run, args=(caso,''))
+            t = threading.Thread(target=self._run, args=(caso,''))
             t.start()
             z.append(t)
         for t in z:
@@ -214,7 +229,7 @@ class fit:
         # #sys.exit()
         fun = dict()
         residual = dict()
-        self.expToFunction()
+        self._expToFunction()
         self.results = dict()
         totResid = []
 
@@ -235,10 +250,10 @@ class fit:
             #self.residual = residual
             #totResid.append(residual[caso])
             totResid = np.append(totResid,residual[caso])
-        self.statistics(p)
+        self._statistics(p)
         return totResid
 
-    def per_iteration(self,pars, iter, resid, *args, **kws):
+    def _per_iteration(self,pars, iter, resid, *args, **kws):
         print(" ITER ", iter, [[i,pars.valuesdict()[i]] for i in pars.valuesdict()])
         self.iter = iter+3
 
@@ -256,15 +271,15 @@ class fit:
             kwargs for the lmfit.minimize function.
             >>> optimize(method='basinhopping')
         '''
-        self.updateParamList()
-        self.mi = lmfit.minimize(self.residual,
+        self._updateParamList()
+        self.mi = lmfit.minimize(self._residual,
                             self.p,
-                            **dict(kwargs, iter_cb=self.per_iteration)
+                            **dict(kwargs, iter_cb=self._per_iteration)
                             )
         lmfit.printfuncs.report_fit(self.mi.params, min_correl=0.5)
         print(lmfit.fit_report(self.mi))
 
-    def signal_handler(self,sig, frame):
+    def _signal_handler(self,sig, frame):
         print()
         print("***********************************")
         print("***********************************")

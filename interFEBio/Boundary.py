@@ -4,6 +4,7 @@ This module deals with boundary conditions (Fixed, prescribed, contact)
 # TODO
 
  - Enable spring BC (check spec 3.0 format)
+ - Enable contact default parameters for majority of the methods (is just implemented for sliding-facet-on-facet)
 
 """
 from __future__ import print_function
@@ -24,20 +25,6 @@ class Boundary(object):
         ----------
 
             steps: Number of steps for the BC list.
-
-        Variables:
-        ----------
-
-            self.bcs: list of Dictionaries containing all boundary conditions with the following types:
-            self.bcs = {'fixed' : [], 'prescribed' : [], .....}
-                fixed - list with each entry containing a 3 element list of: type(nodeset/node id), nodeset/node id, dof.
-                prescribed - list with each entry containing a 5 element list of: type(nodeset/node id), nodeset/node id, dof, load controller id, scale.
-                prescribed relative - same as prescribed. TODO: Mix both types
-                contact - list containing a dictionaries each containing
-                    ctype - 'sliding_with_gaps', 'facet-to-facet sliding', 'sliding2', 'sliding3', 'rigid', 'rigid_wall', 'tied', 'tied-biphasic', 'sliding-tension-compression'
-                    master - master node or surface set (MeshDef.nset or MeshDef.fset attribute) OR if rigid: the rigid body id; if rigid_wall: the plane equation
-                    slave - slave node or surface set
-                    attributes - any attributes that should be specified: pass as a dictionary {attribute tag: value}
 
         """
         self.bcs = []
@@ -163,7 +150,8 @@ class Boundary(object):
                 sliding-multiphasic
                 rigid_wall
                 rigid_joint
-                tied,sticky
+                tied
+                sticky
                 tied-biphasic
 
             master (str): Master surface name.

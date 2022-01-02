@@ -1,8 +1,13 @@
+"""
+This module deals with the control section for each time interval.
+
+"""
 from builtins import object
 
 class Control(object):
     '''
     Class of the control section.
+
     '''
 
 
@@ -10,11 +15,38 @@ class Control(object):
         """
 
         Create a Control object to be used at each step.
+        it contains self.control, self.solver and self.time_stepper dictionarys
+        with the keys and values to write the control branch in the xml .feb file
+        at a particular time interval.
 
         Args
         ----------
 
-            time_stepper (bool): Controls if the automatic time stepper will be used.
+            time_stepper (bool): Controls if the automatic time stepper will be used or not.
+
+        Default values
+        ----------
+            >>> Control:
+                    analysis :                  STATIC
+                    time_steps :                10
+                    step_size :                 0.1
+            >>> Solver:
+                    max_refs :                  15
+                    max_ups :                   10
+                    diverge_reform :            1
+                    reform_each_time_step :     1
+                    dtol :                      0.001
+                    etol :                      0.01
+                    rtol :                      0
+                    lstol :                     0.9
+                    min_residual :              1E-20
+                    qnmethod :                  BFGS
+                    rhoi :                      0
+            >>> Time Stepper:
+                    dtmin :                     0.01
+                    dtmax :                     0.1
+                    max_retries :               5
+                    opt_iter :                  10
 
 
         """

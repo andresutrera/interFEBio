@@ -1,20 +1,30 @@
+"""
+This module is related to material definition.
+"""
+
 from __future__ import print_function
 from builtins import object
 
 class MatDef(object):
     '''
-    Define a material
-    Member functions:
-        addBlock(): add an xml block to the root material block
+    Define a material object associated to a particular list of element sets.
+
+    Args:
+    ----------
+
+        mtype(str)          : Name of the material model.
+
+        elsets(list/str)    : Name of the element sets associated to this material.
+
+        mname(str)          : Material name.
+
+        matid(int)          : Material ID.
+
+        attributes(dict)    : Attributes of the material
 
     '''
 
     def __init__(self,mtype=None,elsets=None,mname=None,matid=None,attributes=None):
-        '''
-        mtype = material type
-        elset = element set to assign material to
-        mname = material name
-        '''
         if not matid:
             print("ERROR: You must specify a material id! Terminating execution...")
             raise SystemExit
@@ -33,8 +43,17 @@ class MatDef(object):
     def addBlock(self,branch=None,btype=None,mtype=None,attributes=None):
         '''
         Add block definition to list of blocks in material
-        Order for list entry: branch level (0=root), block type (material,solid,fluid,etc.), matid (integer if root, False otherwise),
-            material name (string if root, False otherwise), material type, dictionary of attributes or False if none
+
+        Args:
+        ----------
+
+            branch(int)         : Branch level. (0 = root)
+
+            btype(str)          : Block type. (material,solid,fluid,etc.)
+
+            matid(int)          : Material ID. (integer if root, False otherwise)
+
+            attributes(dict)    : Attributes of the material
         '''
         if branch == 0:
             attributes = self.attributes
@@ -46,4 +65,13 @@ class MatDef(object):
         self.blocks.append(blk)
 
     def appendElset(self,elset):
+        '''
+        Append a element set to the material
+
+        Args:
+        ----------
+
+            elsets(str)    : Name of the element sets.
+
+        '''
         self.elsets.append(elset)

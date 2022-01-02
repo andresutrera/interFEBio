@@ -1,3 +1,8 @@
+"""
+Module that defines and provides means for outputting the XML format .feb file.
+
+Creating the object will initialize a skeleton of the model tree
+"""
 from __future__ import print_function
 from builtins import str
 from builtins import map
@@ -8,45 +13,23 @@ import string
 import itertools
 
 class Model(object):
-    '''
-    Class defines and provides means for outputting the XML format .feb file
-    Creating the object will initialize a skeleton of the model tree
-    object_name = Model(self,vers='1.2',modelfile="default.feb",encode="ISO-8859-1",steps=[{'Step01': 'solid'}]):
-        vers - febio spec version to use
-        modelfile - name for .feb file to output
-        encode - text encoding type (this likely should never be changed)
-        steps - a list of dictionaries each entry defining a step
-            dictionary structure: key (step name): item (module type)
-            NOTE: there must always be 1 step
-    Model information is then added by using the following member functions:
-        addControl(self,ctrl=None,step=0): ctrl is a febio.Control object, step is an integer specifying which step to add control parameters to
+    """
+    Create a model object.
 
-        addOutput(self,output=None,): the output section of the XML file is initially populated with the default values for the module indicated in the first step
-            additional output parameters can be added individually or as list e.g. output='nodal fluid flux' or output = ['nodal fluid flux','contact pressure']
-            TODO: add support for logfile output including specified sets
+    Args:
+    ----------
 
-        addMaterial(self,mat=None): mat is an febio.MatDef object
+        vers(str)       :   Spec version for the .feb output. Default = '3.0'
+                            This library doesnt allow to write in different spec versions.
 
-        addGeometry(self,mesh=None,mats=None): mesh is an febio.MeshDef object; mats is a list of febio.MatDef objects
+        modelfile(str)  :   Filename for the generated model file.
 
-        addLoadCurve(self,lc=None,lctype=None,points=[0,0,1,1]): add a loadcurve definition to the model points list is read in chunks of two and must be even in length
+        encode(str)     :   Encoding for the .feb xml file. Default = "ISO-8859-1"
 
-        addConstraint(self,step=0,matid=None,dof=None):
-            step - integer step counter
-            matid - rigid body material ID
-            dof - the degrees of freedom to constrain in a dictionary e.g.
-                {'trans_x': ['prescribed','1','1'], 'trans_y': ['force','1','1'], 'trans_z': 'fixed'}
-                NOTE: for prescribed or force constraints list must be 3 elements and ordered as TYPE, LOADCURVE ID, SCALE FACTOR; for 'fixed' constraint assigned string 'fixed' not as a list
-
-        addGlobal(self,constants=None,solutes=None,generations=None):
-            constants - dictionary with keys being the XML tag for each constant and items being value
-            solutes - dictionary with keys being the name for each solute items are the value
-            globals - list of generation values
-
-        writeModel(self): when called writes the XML tree to modelfile specified during febio.Model object creation (default = 'default.feb')
-
-        __indent(self): private function used to recursively indent and carriage return the XML tree so it is more human-readable
-    '''
+        steps(list)     :   list of dictionaries containing the steps of the analysis.
+                            The format of each step is 'step name' : 'type'.
+                                >>> steps=[{'Step01': 'solid'}, {'Step02': 'solid'}]
+    """
 
 
     def __init__(self,vers='3.0',modelfile="default.feb",encode="ISO-8859-1",steps=[{'Step01': 'solid'}]):
@@ -108,6 +91,16 @@ class Model(object):
 
 
     def addControl(self,ctrl=None,step=0):
+        """
+        Add a control object to a particular step of the analysis.
+
+        Args:
+        ----------
+
+            ctr(control object) :   control object (interFEBio.Control())
+
+            step(int) :             Step for that control object.
+        """
         step_ctrl = ET.SubElement(self.steps[step],"Control")
 
         for i in list(ctrl.control.keys()):
@@ -138,6 +131,14 @@ class Model(object):
                 #     ET.SubElement(step_ctrl,i).text = ctrl.attributes[i]
 
     def addOutput(self,output=None):
+        """
+        Add a output variable to the output section of the .feb file.
+
+        Args:
+        ----------
+
+            output(str) : Output variable.
+        """
         if output is not None:
             if isinstance(output, list):
                 for i in output:
@@ -147,6 +148,14 @@ class Model(object):
 
 
     def addMaterial(self,mat=None):
+        """
+        Add a material to the materials section of the .feb file.
+
+        Args:
+        ----------
+
+            mat(MatDef object) : MatDef object.
+        """
         if mat is not None:
             levels = []
             for blk in mat.blocks:
@@ -189,6 +198,17 @@ class Model(object):
 
 
     def addGeometry(self,mesh=None,mats=None):
+        """
+        Add a material to the materials section of the .feb file.
+
+        Args:
+        ----------
+
+            mesh(MeshDef object) : MeshDef object.
+
+            mats(list) : List of MatDef object to be used in the geometry.
+
+        """
         if mesh is not None:
             if mats is not None:
                 for i in range(len(mesh.nodes)):
@@ -255,6 +275,15 @@ class Model(object):
 
 
     def addBoundary(self,boundary=None):
+        """
+        Add boundary to the .feb file.
+
+        Args:
+        ----------
+
+            boundary(Boundary object) : Boundary object containing the boundary at each step.
+
+        """
         if boundary is not None:
             self.prescribedblk = []
             self.prescribedrelblk = []
@@ -375,6 +404,15 @@ class Model(object):
 
 
     def addLoad(self,load=None):
+        """
+        Add load to the .feb file.
+
+        Args:
+        ----------
+
+            load(Load object) : Load object containing the loads at each step.
+
+        """
         if load is not None:
             self.forceblk = []
             self.pressureblk = []
@@ -471,6 +509,24 @@ class Model(object):
 
 
     def addLoadCurve(self,lc=None,lctype='loadcurve',points=[[0,0],[1,1]], interpolate='LINEAR',extend='CONSTANT', math=None,var=None,target=None,Kp=None,Kd=None,Ki=None ):
+        """
+        Add a load controller to the .feb model.
+
+        Args:
+        ----------
+
+            lc(str) :           ID of the load controller.
+
+            lctype(str):        Type of load controller (loadcurve, math, PID)
+
+            points(list):       List of points to be added in a loadcurve type controller.
+                                points=[[p1 time, p1 value], [p2 time, p2 value], ...]
+
+            interpolate(str):   Type of interpolation. (STEP, LINEAR, SMOOTH)
+
+            extend(str) :       Type of extend ouside the interval time. (CONSTANT, EXTRAPOLATE, REPEAT, REPEAT OFFSET)
+
+        """
         try:
             self.loaddata
         except:
@@ -522,51 +578,54 @@ class Model(object):
             ET.SubElement(loadController,'Ki').text = "{}".format(Ki)
 
 
-    def addGlobal(self,constants=None, solutes=None, generations=None):
-        try:
-            self.globals
-        except:
-            self.globals = ET.SubElement(self.root,"Globals")
-        if constants is not None:
-            try:
-                for i in list(constants.keys()):
-                    ET.SubElement(self.constants,i).text = str(constants[i])
-            except:
-                self.constants = ET.SubElement(self.globals,"Constants")
-                for i in list(constants.keys()):
-                    ET.SubElement(self.constants,i).text = str(constants[i])
-
-        if solutes is not None:
-            try:
-                cnt = len(self.solutes)
-                for i in list(solutes.keys()):
-                    ET.SubElement(self.solutes,"solute",id=str(cnt),name=i).text = str(solutes[i])
-                    cnt += 1
-            except:
-                cnt = 1
-                self.solutes = ET.SubElement(self.globals,"Solutes")
-                for i in list(solutes.keys()):
-                    ET.SubElement(self.solutes,"solute",id=solutes[i][0],name=i).text = str(solutes[i][1])
-                    cnt += 1
-
-        if generations is not None:
-            try:
-                cnt = len(self.generations)
-                for i in generations:
-                    ET.SubElement(self.generations,"gen",id=str(cnt)).text = str(i)
-                    cnt += 1
-            except:
-                cnt = 1
-                self.generations = ET.SubElement(self.globals, "Generations")
-                for i in generations:
-                    ET.SubElement(self.generations,"gen",id=str(cnt)).text = str(i)
-                    cnt += 1
+    # def addGlobal(self,constants=None, solutes=None, generations=None):
+    #     try:
+    #         self.globals
+    #     except:
+    #         self.globals = ET.SubElement(self.root,"Globals")
+    #     if constants is not None:
+    #         try:
+    #             for i in list(constants.keys()):
+    #                 ET.SubElement(self.constants,i).text = str(constants[i])
+    #         except:
+    #             self.constants = ET.SubElement(self.globals,"Constants")
+    #             for i in list(constants.keys()):
+    #                 ET.SubElement(self.constants,i).text = str(constants[i])
+    #
+    #     if solutes is not None:
+    #         try:
+    #             cnt = len(self.solutes)
+    #             for i in list(solutes.keys()):
+    #                 ET.SubElement(self.solutes,"solute",id=str(cnt),name=i).text = str(solutes[i])
+    #                 cnt += 1
+    #         except:
+    #             cnt = 1
+    #             self.solutes = ET.SubElement(self.globals,"Solutes")
+    #             for i in list(solutes.keys()):
+    #                 ET.SubElement(self.solutes,"solute",id=solutes[i][0],name=i).text = str(solutes[i][1])
+    #                 cnt += 1
+    #
+    #     if generations is not None:
+    #         try:
+    #             cnt = len(self.generations)
+    #             for i in generations:
+    #                 ET.SubElement(self.generations,"gen",id=str(cnt)).text = str(i)
+    #                 cnt += 1
+    #         except:
+    #             cnt = 1
+    #             self.generations = ET.SubElement(self.globals, "Generations")
+    #             for i in generations:
+    #                 ET.SubElement(self.generations,"gen",id=str(cnt)).text = str(i)
+    #                 cnt += 1
 
 
 
 
     def writeModel(self):
+        """
+        Write the .feb model file
 
+        """
         # Assemble XML tree
         tree = ET.ElementTree(self.root)
 

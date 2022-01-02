@@ -1,3 +1,15 @@
+"""
+This class handles the mesh data.
+
+a interface between a mesh file (just gmsh for now) is used to get the
+mesh nodes, elements, nodesets, surfaces and element sets for making the .feb file.
+
+# TODO
+
+ - Add more mesh interfaces. Just gmsh is implemented.
+ - Check for gmsh second order elements.
+
+"""
 from __future__ import print_function
 from __future__ import division
 from builtins import str
@@ -11,13 +23,29 @@ import sys
 class MeshDef(object):
     '''
     Class to store element, node, and set definitions
-    Can parse Abaqus Input or HDF5 formats
+
+    Can parse just gmsh files (2.0 and 2.2 formats for now).
+
+    Args:
+    ----------
+
+        mfile(str):             Mesh file.
+
+        mformat(str):           Mesh format. (gmsh)
+
+        scale(list):            List of scale for nodal positions. default = [1.0, 1.0, 1.0]
+
+        physicalEntities(list): List of strings. physical entities to be added to the mesh.
+                                The remaining entities defined in the mesh file will be added as surfaces
+                                and nodesets.
+
+        print(dict):            Dictionary to print the readed mesh data in the format 'key':True/False.
+                                The supported keys are 'nodes','elements','elsets','fsets','nsets'.
+
     '''
-    facetID = 1 #counter to assign unique IDs to surface facets defined in sets
+
 
     def __init__(self,mfile=None,mformat='manual',scale=[1.0,1.0,1.0],physicalEntities=None,print={'nodes':False,'elements':False,'elsets':False,'fsets':False, 'nsets':False}):
-        '''
-        '''
         self.mfile = mfile
         self.mformat = mformat
         #elements[element] = {'type' : elementType, 'nodes' : [listOfNodes]}
@@ -36,6 +64,8 @@ class MeshDef(object):
 
         self.physicalEntities = physicalEntities
 
+        self.facetID = 1 #counter to assign unique IDs to surface facets defined in sets
+
         #Mapping from the gmsh element to the resulting element for FEBio.
         #This class will ignore the physical surfaces/lines/nodes as elements, but they will be
         #included in fsets and nsets
@@ -45,9 +75,9 @@ class MeshDef(object):
 
         self.elementData = []
         if self.mfile is not None:
-            self.parseMesh()
+            self._parseMesh()
 
-    def parseMesh(self):
+    def _parseMesh(self):
         if self.mformat.lower() == 'gmsh':
             supportedFormats = ['2.2', '2.0']
 
@@ -151,6 +181,18 @@ class MeshDef(object):
                         print(self.nsets)
 
     def addElementSet(self,setname=None,eids=None,type=None):
+        '''
+        Add a element set manually.
+
+        Args:
+        ----------
+
+            setname(str):  Name of the nodeset to be added.
+
+            eids(list):    List of elements to be added in that element set.
+
+            type(str):     Type of element (hex8, hex20, etc).
+        '''
         if setname is None:
             print("WARNING: Must provide a setname. Skipping set generation...")
             pass
@@ -168,6 +210,16 @@ class MeshDef(object):
         self.elsets[setname]['type'] = type
 
     def addNodeSet(self,setname=None,nids=None):
+        '''
+        Add a nodeset set manually.
+
+        Args:
+        ----------
+
+            setname(str):  Name of the nodeset to be added.
+
+            nids(list):    List of nodes to be added in that nodeset.
+        '''
         if setname is None:
             print("WARNING: Must provide a setname. Skipping set generation...")
             pass
@@ -181,6 +233,21 @@ class MeshDef(object):
             self.nsets[setname]['nodes'].append(node)
 
     def addSurfaceSet(self,setname=None,felems=None,type=None):
+        '''
+        Add a surface set manually.
+
+        Args:
+        ----------
+
+            setname(str):   Name of the nodeset to be added.
+
+            felems(list):   List of elements and nodes to be added in that surface set.
+                            The list needs to be a list of list containing the nodes of each facet element:
+                            e.g. [[1,2,3,4],[3,4,5,6]]
+
+            type(str):     Type of element (quad4, tri3).
+
+        '''
         if setname is None:
             print("WARNING: Must provide a setname. Skipping set generation...")
             pass
@@ -200,4 +267,14 @@ class MeshDef(object):
         return [node[0]*self.scale[0],node[1]*self.scale[1],node[2]*self.scale[2]]
 
     def addElementData(self, attrubutes,tree):
+        '''
+        Add element data (material axes, prestrain, etc).
+
+        Args:
+        ----------
+
+            attrubutes(dict):   Dictionary of attributes of the ElementData
+
+            tree(ET):           Element Tree containing each element ElementData inside an arbitrary root tag.
+        '''
         self.elementData.append({'attrubutes' : attrubutes, 'tree' : tree})

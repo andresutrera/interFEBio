@@ -580,10 +580,9 @@ class xplt:
             #print(self.results[key].shape)
 
     def _read_xplt(self,filename):
-        #if(int('0x0031', base=16) == struct.unpack('I', self.reader.read())[0]):
-            #print('Correct FEBio format')
-        #else:
-            #sys.exit("The provided file is not a valid xplt file")
+        FEBioFile = struct.unpack('I', self.reader.read())[0]
+        if(4605250 != FEBioFile):
+            sys.exit("The provided file is not a valid xplt file")
         self.reader.search_block('PLT_ROOT')
         self.reader.search_block('PLT_HEADER')
         self.reader.search_block('PLT_HDR_VERSION')
@@ -591,7 +590,6 @@ class xplt:
 
         self.reader.search_block('PLT_HDR_COMPRESSION')
         self.compression = struct.unpack('I', self.reader.read())[0]
-
         self._readDict()
         self._readMesh()
         self._readParts()

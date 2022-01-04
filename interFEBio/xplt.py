@@ -55,20 +55,38 @@ class xplt:
             6 : 'HEX20',
             7 : 'TET10',
             8 : 'TET15',
-            9 : 'HEX27'
+            9 : 'HEX27',
+            10 : 'TRI6',
+            11 : 'QUAD8',
+            12 : 'QUAD9',
+            13 : 'PENTA15',
+		    14 : 'TET20',
+		    15 : 'TRI10',
+		    16 : 'PYRA5',
+		    17 : 'TET5',
+            18 : 'PYRA13'
             }
 
         nodesPerElement = {
-            'HEX8'   : 8,
-            'PENTA6' : 6,
-            'TET4'   : 4,
-            'QUAD4'  : 4,
-            'TRI3'   : 3,
-            'TRUSS2' : 2,
-            'HEX20' :20,
-            'TET10' : 10,
-            'TET15' : 15,
-            'HEX27' : 27
+            'HEX8'      : 8,
+            'PENTA6'    : 6,
+            'TET4'      : 4,
+            'QUAD4'     : 4,
+            'TRI3'      : 3,
+            'TRUSS2'    : 2,
+            'HEX20'     : 20,
+            'TET10'     : 10,
+            'TET15'     : 15,
+            'HEX27'     : 27,
+            'TRI6'      : 6,
+            'QUAD8'     : 8,
+            'QUAD9'     : 9,
+            'PENTA15'   : 15,
+            'TET20'     : 20,
+            'TRI10'     : 10,
+            'PYRA5'     : 5,
+            'TET5'      : 5,
+            'PYRA13'    : 13
         }
 
         a = self.reader.search_block('PLT_MESH')

@@ -409,6 +409,7 @@ class xplt:
             #    sys.error("No more states to skip")
         #self.readState()
         self._clearDict()
+        self.reader.file.close()
 
 
     def _readState(self):

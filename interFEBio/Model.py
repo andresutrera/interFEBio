@@ -307,6 +307,7 @@ class Model(object):
             self.i_rigid_joint = 1
 
             for i in range(len(boundary.bcs)):
+                print("IIIIIIIII",i)
                 step = boundary.bcs[i]
                 if len(step['fixed']) > 0:
                     for i,stepFixed in enumerate(step['fixed']):
@@ -369,7 +370,33 @@ class Model(object):
                                                                 'seg_up' :          0,
                                                                 'update_penalty' :  0,
                                                                 'search_radius' :   0   }
+
+                contactAttribDict['sliding-elastic'] =          {'laugon' :                   0,
+                                                                'tolerance' :               0.2,
+                                                                'gaptol' :                  0,
+                                                                'penalty' :                 1,
+                                                                'auto_penalty' :            0,
+                                                                'two_pass' :                0,
+                                                                'search_tol' :              0.01,
+                                                                'symmetric_stiffness':      0,
+                                                                'search_radius' :           1,
+                                                                'seg_up' :                  0,
+                                                                'tension' :                 0,
+                                                                'minaug' :                  0,
+                                                                'maxaug' :                  10,
+                                                                'fric_coeff' :              0,
+                                                                'smooth_aug' :              0,
+                                                                'node_reloc' :              0,
+                                                                'flip_primary' :            0,
+                                                                'flip_secondary' :          0,
+                                                                'knmult' :                  0,
+                                                                'update_penalty':           0,
+                                                                'shell_bottom_primary' :    0,
+                                                                'shell_bottom_secondary':   0 }
+
+
                 if len(step['contact']) > 0:
+
                     ET.SubElement(self.plotfile,"var",type="contact gap")
                     ET.SubElement(self.plotfile,"var",type="contact force")
                     cnt = 0
@@ -381,17 +408,22 @@ class Model(object):
                         if c['type']=='sliding-facet-on-facet':
                             contactName = 'FacetOnFacetSliding'+str(self.i_sliding_facet_on_facet)
                             surfacePair = contactName
-                            if(i == 0):
-                                self.contactblk.append(ET.SubElement(self.initialContact,'contact',type=c['type'], name=contactName, surface_pair=surfacePair))
-                            else:
-                                self.contactblk.append(ET.SubElement(self.contactMain[i-1],'contact',type=c['type'], name=contactName, surface_pair=surfacePair))
-                            if(type(c['attributes']) is dict):
-                                contactAttribDict[c['type']].update(c['attributes'])
-                            for attrib in list(contactAttribDict[c['type']].keys()):
-                                ET.SubElement(self.contactblk[cnt],attrib).text = str(contactAttribDict[c['type']][attrib])
-                            self.surfacePairs.append(ET.SubElement(self.geometry,"SurfacePair",name=contactName))
-                            ET.SubElement(self.surfacePairs[-1],"primary").text = c['master']
-                            ET.SubElement(self.surfacePairs[-1],"secondary").text = c['slave']
+                        elif c['type']=='sliding-elastic':
+                            contactName = 'SlidingElasticContact'+str(self.i_sliding_elastic)
+                            surfacePair = contactName
+                        if(i == 0):
+                            self.contactblk.append(ET.SubElement(self.initialContact,'contact',type=c['type'], name=contactName, surface_pair=surfacePair))
+                        else:
+                            self.contactblk.append(ET.SubElement(self.initialContact,'contact',type=c['type'], name=contactName, surface_pair=surfacePair))
+                        if(type(c['attributes']) is dict):
+                            contactAttribDict[c['type']].update(c['attributes'])
+                        for attrib in list(contactAttribDict[c['type']].keys()):
+                            ET.SubElement(self.contactblk[cnt],attrib).text = str(contactAttribDict[c['type']][attrib])
+                        self.surfacePairs.append(ET.SubElement(self.geometry,"SurfacePair",name=contactName))
+                        ET.SubElement(self.surfacePairs[-1],"primary").text = c['master']
+                        ET.SubElement(self.surfacePairs[-1],"secondary").text = c['slave']
+
+
 
                         cnt += 1
 
@@ -479,31 +511,31 @@ class Model(object):
                                 ET.SubElement(self.bfblk[cnt],a).text = str(bf['attributes'][a])
 
     #TODO: Check constraint format in spec 3.0
-    # def addConstraint(self,step=None,matid=None,dof=None,type=None, lc=None,scale=None,relative=None):
-    #     if matid is None:
-    #         print("WARNING: No material ID was specified.  Skipping constraint definition...")
-    #         pass
-    #     if dof is None:
-    #         print("WARNING: No degree(s) of freedom was specified.  Skipping constraint definition...")
-    #         pass
-    #     name = "RigidConstraint"+str(self.i_rigidConstraint)
-    #     if step == 0 or step is None:
-    #         parent = ET.SubElement(self.initialConstraint,"rigid_constraint", name=name, type=type)
-    #     else:
-    #         parent = ET.SubElement(self.constraint[step-1],"rigid_constraint", name=name, type=type)
-    #
-    #     ET.SubElement(parent,'rb').text = str(matid)
-    #     if ',' in dof:
-    #         ET.SubElement(parent,'dofs').text = dof
-    #     else:
-    #         ET.SubElement(parent,'dof').text = dof
-    #     if(type != 'fix'):
-    #         ET.SubElement(parent,'value', lc=str(lc)).text = str(scale)
-    #         if(relative == 1 or relative == '1'):
-    #             reltxt = '1'
-    #         else:
-    #             reltxt = '0'
-    #         ET.SubElement(parent,'relative').text = reltxt
+    def addConstraint(self,step=None,matid=None,dof=None,type=None, lc=None,scale=None,relative=None):
+        if matid is None:
+            print("WARNING: No material ID was specified.  Skipping constraint definition...")
+            pass
+        if dof is None:
+            print("WARNING: No degree(s) of freedom was specified.  Skipping constraint definition...")
+            pass
+        name = "RigidConstraint"+str(self.i_rigidConstraint)
+        if step == 0 or step is None:
+            parent = ET.SubElement(self.initialConstraint,"rigid_constraint", name=name, type=type)
+        else:
+            parent = ET.SubElement(self.constraint[step-1],"rigid_constraint", name=name, type=type)
+
+        ET.SubElement(parent,'rb').text = str(matid)
+        if ',' in dof:
+            ET.SubElement(parent,'dofs').text = dof
+        else:
+            ET.SubElement(parent,'dof').text = dof
+        if(type != 'fix'):
+            ET.SubElement(parent,'value', lc=str(lc)).text = str(scale)
+            if(relative == 1 or relative == '1'):
+                reltxt = '1'
+            else:
+                reltxt = '0'
+            ET.SubElement(parent,'relative').text = reltxt
 
 
 

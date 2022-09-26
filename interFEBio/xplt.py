@@ -12,7 +12,8 @@ import numpy as np
 from numpy import *
 import sys
 import pdb
-
+import warnings
+warnings.filterwarnings("ignore", category=VisibleDeprecationWarning) 
 
 
 
@@ -471,6 +472,7 @@ class xplt:
                         for j in range(0, varDataDim):
                             elem_data[i, j] = struct.unpack('f', self.reader.read())[0]
                 domainData.append(elem_data)
+                #print(elem_data.shape)
                 #domainData = np.append(domainData,elem_data)
             self.results[dictKey].append(domainData)
             var+=1
@@ -514,6 +516,7 @@ class xplt:
                         for j in range(0, varDataDim):
                             elem_data[i, j] = struct.unpack('f', self.reader.read())[0]
                 domainData.append(elem_data)
+                #print(elem_data.shape)
                 #domainData = np.append(domainData,elem_data)
                 #print(elem_data)
 
@@ -558,16 +561,18 @@ class xplt:
                         for j in range(0, varDataDim):
                             elem_data[i, j] = struct.unpack('f', self.reader.read())[0]
                 #domainData = np.append(domainData,elem_data)
-                domainData.append(elem_data)
-                #print(domainData)
+                domainData.append(np.array(elem_data))
+                #print(elem_data.shape)
                 #domainData = np.array(domainData)
                 #print(elem_data)
 
             item_def_doms.append(def_doms)
-
-            self.results[dictKey].append(domainData)
+            #print(domainData)
+            self.results[dictKey].append(np.array(domainData))
             var+=1
             #self.results[dictKey] = np.append(self.results[dictKey],domainData)
+        #print("RESULTSFACE")
+        #print(self.results[dictKey])
         return 0
 
 
@@ -596,7 +601,7 @@ class xplt:
     def _clearDict(self):
         for key in self.results:
             self.results[key] = np.array(self.results[key])
-            #print(self.results[key].shape)
+            #print(key,self.results[key].shape,self.results[key][:,0])
 
     def _read_xplt(self,filename):
         FEBioFile = struct.unpack('I', self.reader.read())[0]

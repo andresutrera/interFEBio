@@ -27,11 +27,12 @@ from sklearn.metrics import r2_score
 import interFEBio
 from scipy.ndimage import interpolation
 import signal
+from scipy import interpolate
 
 
 class _caso:
 
-    def __init__(self,modelName,matID,subFolder,expData,simFcn):
+    def __init__(self,modelName,matID,subFolder,expData,simFcn,weights):
 
         self.modelName = modelName
         self.modelBinary = modelName.split('.feb')[0]+'.xplt'
@@ -41,6 +42,8 @@ class _caso:
         self.current_directory = os.getcwd()
         self.simFcn = simFcn
         self.parameters = []
+        self.weights = weights
+
 
     def addParameter(self,param):
         self.parameters.append(param)
@@ -140,7 +143,7 @@ class fit:
         self.thisIter = 0
         self.disp1 = dict()
 
-    def addCase(self,name,matID,modelName,subFolder,expData,simFcn):
+    def addCase(self,name,matID,modelName,subFolder,expData,simFcn,weights):
         '''
         Add a simulation to the fitting algorithm, including all the experimental data
         and how to obtain numerical results for this xplt file.
@@ -159,7 +162,7 @@ class fit:
             simFcn (fuinction): Function that handles the result calculation of the simulation. Needs to be written in terms of the xplt class functions.
 
         '''
-        self.casos[name] = _caso(modelName,matID,subFolder,expData,simFcn)
+        self.casos[name] = _caso(modelName,matID,subFolder,expData,simFcn,weights)
 
     def _updateParamList(self):
         #os.environ['OMP_NUM_THR        # for par in pars.keys():
@@ -175,10 +178,10 @@ class fit:
     def _run(self,caso,dh):
 
         if(dh == ''):
-            p = subprocess.Popen(["febio3 -i "+self.casos[caso].modelName],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iter'+str(self.iter),self.casos[caso].subFolder)+'/')
+            p = subprocess.Popen(["febio3 -i "+self.casos[caso].modelName+' -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iter'+str(self.iter),self.casos[caso].subFolder)+'/')
             print("Running simulation "+os.path.join('iter'+str(self.iter),self.casos[caso].subFolder)+'/'+self.casos[caso].modelName+ ". PID: ",p.pid)
         else:
-            p = subprocess.Popen(["febio3 -i "+self.casos[caso].modelName.split('.')[0]+'_'+dh+'.feb'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iter'+str(self.iter),self.casos[caso].subFolder,dh)+'/')
+            p = subprocess.Popen(["febio3 -i "+self.casos[caso].modelName.split('.')[0]+'_'+dh+'.feb -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iter'+str(self.iter),self.casos[caso].subFolder,dh)+'/')
             print("Running simulation "+os.path.join('iter'+str(self.iter),self.casos[caso].subFolder)+'/'+self.casos[caso].modelName.split('.')[0]+'_'+dh+'.feb'+ ". PID: ",p.pid)
         self.pid[caso] = p.pid
         p.communicate()
@@ -213,18 +216,20 @@ class fit:
 
 
     def _residual(self,p):
+        #print(self.iter)
         parameter = dict(p.valuesdict())
         for caso in self.casos:
             self.casos[caso].verifyFolders(self.iter,p)
             self.casos[caso].writeCase(p,self.iter)
         #if(self.thisIter != self.iter):
         z = []
-        for caso in self.casos:
-            t = threading.Thread(target=self._run, args=(caso,''))
-            t.start()
-            z.append(t)
-        for t in z:
-           t.join()
+        if(self.iter>=4):
+            for caso in self.casos:
+                t = threading.Thread(target=self._run, args=(caso,''))
+                t.start()
+                z.append(t)
+            for t in z:
+                t.join()
 
         # #sys.exit()
         fun = dict()
@@ -245,7 +250,7 @@ class fit:
                     z = i / len(x)
                     x = interpolation.zoom(x,z)
                     y = interpolation.zoom(y,z)
-            residual[caso] = -(self.expfcn[caso](x)-y)
+            residual[caso] = -(self.expfcn[caso](x)-y)*self.casos[caso].weights(x)
             self.results[caso] = [x,y]
             #self.residual = residual
             #totResid.append(residual[caso])

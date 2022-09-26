@@ -152,7 +152,7 @@ class MeshDef(object):
                             self.elsets[setname]['type'] = etype
 
                     if(physicalNames[physicalID]['type'] == 'surface'):
-                        dmy = [etype,MeshDef.facetID]
+                        #dmy = [etype,MeshDef.facetID]
                         #print(dmy)
                         self.fsets[setname]['elements'].append(list(map(int,elemList)))
                         if(not "type" in self.fsets[setname]):

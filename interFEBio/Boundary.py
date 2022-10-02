@@ -122,14 +122,14 @@ class Boundary(object):
 
 
         if nset is not None:
-            self.bcs[step][keywd].append(['nodeset',nset,dof,lc,scale])
+            self.bcs[step][ptype].append(['nodeset',nset,dof,lc,scale])
 
         if nodeid is not None:
             if isinstance(nodeid, list):
                 for n in nodeid:
-                    self.bcs[step][keywd].append(['node',str(n),dof,lc,scale])
+                    self.bcs[step][ptype].append(['node',str(n),dof,lc,scale])
             else:
-                self.bcs[step][keywd].append(['node',str(nodeid),dof,lc,scale])
+                self.bcs[step][ptype].append(['node',str(nodeid),dof,lc,scale])
 
     def addContact(self,step=0,ctype=None,master=None,slave=None,attributes=None):
         """

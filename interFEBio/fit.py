@@ -32,7 +32,7 @@ from scipy import interpolate
 
 class _caso:
 
-    def __init__(self,modelName,matID,subFolder,expData,simFcn,weights):
+    def __init__(self,modelName=None,matID=None,subFolder=None,expData=None,simFcn=None,weights=None):
 
         self.modelName = modelName
         self.modelBinary = modelName.split('.feb')[0]+'.xplt'
@@ -44,6 +44,12 @@ class _caso:
         self.parameters = []
         self.weights = weights
 
+        if not isinstance(self.expData, dict):
+            self.expData = {'default' : self.expData}
+        if not isinstance(self.simFcn, dict):
+            self.simFcn = {'default' : self.simFcn}
+        if not isinstance(self.weights, dict):
+            self.weights = {'default' : self.weights}
 
     def addParameter(self,param):
         self.parameters.append(param)
@@ -62,7 +68,7 @@ class _caso:
                         const.text = '{:.20e}'.format(pars[const.tag])
                         #print(const.tag,const.text)
         #print(os.path.join(self.current_directory, 'iter'+str(iter),self.subFolder))
-        tree.write(os.path.join(self.current_directory, 'iter'+str(iter),self.subFolder)+'/'+self.modelName,encoding='ISO-8859-1', xml_declaration=True)
+        tree.write(os.path.join(self.current_directory, 'iters/iter'+str(iter),self.subFolder)+'/'+self.modelName,encoding='ISO-8859-1', xml_declaration=True)
 
         # for p in pars.keys():
         #     if params[p].expr == None:
@@ -82,8 +88,10 @@ class _caso:
         #         tree.write(os.path.join(self.current_directory, 'iter'+str(iter),self.subFolder,p)+'/'+self.modelName.split('.')[0]+'_'+p+".feb",encoding='ISO-8859-1', xml_declaration=True)
 
     def verifyFolders(self,iter,p):
+        if not os.path.exists('iters'):
+            os.makedirs('iters')
         pars = dict(p.valuesdict())
-        iterDir = os.path.join(self.current_directory, 'iter'+str(iter))
+        iterDir = os.path.join(self.current_directory, 'iters/iter'+str(iter))
         if not os.path.exists(iterDir):
             os.makedirs(iterDir)
         simDir = os.path.join(iterDir, self.subFolder)
@@ -113,10 +121,13 @@ class _caso:
     #     return funSim
 
     def simResults(self,iter):
-        file = 'iter'+str(iter)+'/'+self.subFolder+'/'+self.modelBinary
-        x, y = self.simFcn(self,file)
-        np.savetxt(os.path.join(self.current_directory, 'iter'+str(iter),self.subFolder)+'/result.txt',np.transpose([x, y]))
-        return x, y
+        simResults = dict()
+        for exp in self.expData:
+            file = 'iters/iter'+str(iter)+'/'+self.subFolder+'/'+self.modelBinary
+            x, y = self.simFcn[exp](self,file)
+            np.savetxt(os.path.join(self.current_directory, 'iters/iter'+str(iter),self.subFolder)+'/'+ exp+'.txt',np.transpose([x, y]))
+            simResults[exp] = (x,y)
+        return simResults
 
 
 class fit:
@@ -143,7 +154,8 @@ class fit:
         self.thisIter = 0
         self.disp1 = dict()
 
-    def addCase(self,name,matID,modelName,subFolder,expData,simFcn,weights):
+
+    def addCase(self,name=None,matID=None,modelName=None,subFolder=None,expData=None,simFcn=None,weights=None):
         '''
         Add a simulation to the fitting algorithm, including all the experimental data
         and how to obtain numerical results for this xplt file.
@@ -162,7 +174,7 @@ class fit:
             simFcn (fuinction): Function that handles the result calculation of the simulation. Needs to be written in terms of the xplt class functions.
 
         '''
-        self.casos[name] = _caso(modelName,matID,subFolder,expData,simFcn,weights)
+        self.casos[name] = _caso(modelName=modelName,matID=matID,subFolder=subFolder,expData=expData,simFcn=simFcn,weights=weights)
 
     def _updateParamList(self):
         #os.environ['OMP_NUM_THR        # for par in pars.keys():
@@ -178,11 +190,11 @@ class fit:
     def _run(self,caso,dh):
 
         if(dh == ''):
-            p = subprocess.Popen(["febio3 -i "+self.casos[caso].modelName+' -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iter'+str(self.iter),self.casos[caso].subFolder)+'/')
-            print("Running simulation "+os.path.join('iter'+str(self.iter),self.casos[caso].subFolder)+'/'+self.casos[caso].modelName+ ". PID: ",p.pid)
+            p = subprocess.Popen(["febio3 -i "+self.casos[caso].modelName+' -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/')
+            print("Running simulation "+os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/'+self.casos[caso].modelName+ ". PID: ",p.pid)
         else:
-            p = subprocess.Popen(["febio3 -i "+self.casos[caso].modelName.split('.')[0]+'_'+dh+'.feb -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iter'+str(self.iter),self.casos[caso].subFolder,dh)+'/')
-            print("Running simulation "+os.path.join('iter'+str(self.iter),self.casos[caso].subFolder)+'/'+self.casos[caso].modelName.split('.')[0]+'_'+dh+'.feb'+ ". PID: ",p.pid)
+            p = subprocess.Popen(["febio3 -i "+self.casos[caso].modelName.split('.')[0]+'_'+dh+'.feb -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder,dh)+'/')
+            print("Running simulation "+os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/'+self.casos[caso].modelName.split('.')[0]+'_'+dh+'.feb'+ ". PID: ",p.pid)
         self.pid[caso] = p.pid
         p.communicate()
         p.wait()
@@ -191,17 +203,28 @@ class fit:
     def _expToFunction(self):
         self.expfcn = dict()
         for caso in self.casos:
-            self.expfcn[caso] = interp1d(self.casos[caso].expData[:,0], self.casos[caso].expData[:,1],fill_value='extrapolate')
+            experimentInterps = dict()
+            for exp in self.casos[caso].expData:
+                experimentInterps[exp] = interp1d(self.casos[caso].expData[exp][:,0], self.casos[caso].expData[exp][:,1],fill_value='extrapolate')
+            self.expfcn[caso] = experimentInterps
 
     def _statistics(self,p):
         parameters = dict(p.valuesdict())
         self.r2 = dict()
         for case in self.casos:
-            actual = self.expfcn[case](self.results[case][0])
-            predict = self.results[case][1]
+            expStatistics = dict()
+            for exp in self.casos[case].expData:
+                #print(exp)
+                #print(self.results[case][exp])
+                actual = self.expfcn[case][exp](self.results[case][exp][0])
+                predict = self.results[case][exp][1]
+                #print("ACTUAL/PREDICT")
+                #print(actual)
+                #print(predict)
+                R_sq = r2_score(actual, predict)
+                expStatistics[exp] = R_sq
 
-            R_sq = r2_score(actual, predict)
-            self.r2[case] = R_sq
+            self.r2[case] = expStatistics
 
         self.logfile = open(self.logfileName, 'a')
         self.logfile.write('iter '+str(self.iter)+'\t')
@@ -223,13 +246,13 @@ class fit:
             self.casos[caso].writeCase(p,self.iter)
         #if(self.thisIter != self.iter):
         z = []
-        if(self.iter>=4):
-            for caso in self.casos:
-                t = threading.Thread(target=self._run, args=(caso,''))
-                t.start()
-                z.append(t)
-            for t in z:
-                t.join()
+        #if(self.iter>=4):
+        for caso in self.casos:
+            t = threading.Thread(target=self._run, args=(caso,''))
+            t.start()
+            z.append(t)
+        for t in z:
+            t.join()
 
         # #sys.exit()
         fun = dict()
@@ -240,26 +263,36 @@ class fit:
 
         totResid = np.array([])
         for caso in self.casos:
-            x, y = self.casos[caso].simResults(self.iter)
-            if(self.iter == 1):
-                self.len1[caso] = len(x)
+            simResults = dict()
+            residualExp = dict()
+            for exp in self.casos[caso].expData:
+                #print("KEY:",exp)
+                x, y = self.casos[caso].simResults(self.iter)[exp]
+                simResults[exp] = (x,y)
+                if(self.iter == 1):
+                    self.len1[caso] = len(x)
 
-            else:
-                if(len(x) != self.len1[caso]):
-                    i = self.len1[caso]
-                    z = i / len(x)
-                    x = interpolation.zoom(x,z)
-                    y = interpolation.zoom(y,z)
-            residual[caso] = -(self.expfcn[caso](x)-y)*self.casos[caso].weights(x)
-            self.results[caso] = [x,y]
-            #self.residual = residual
-            #totResid.append(residual[caso])
-            totResid = np.append(totResid,residual[caso])
+                else:
+                    if(len(x) != self.len1[caso]):
+                        i = self.len1[caso]
+                        z = i / len(x)
+                        x = interpolation.zoom(x,z)
+                        y = interpolation.zoom(y,z)
+                residualExp[exp] = -(self.expfcn[caso][exp](x)-y)*self.casos[caso].weights[exp](x)
+                totResid = np.append(totResid,residualExp[exp])
+            #print("atResidual",residualExp)
+            self.results[caso] = simResults
+                #self.residual = residual
+                #totResid.append(residual[caso])
+        #print(totResid)
+
         self._statistics(p)
         return totResid
 
     def _per_iteration(self,pars, iter, resid, *args, **kws):
-        print(" ITER ", iter, [[i,pars.valuesdict()[i]] for i in pars.valuesdict()])
+        print("ITER ",iter)
+        print("\t Params:  ",dict(pars.valuesdict()))
+        print("\t Fitness: ",self.r2)
         self.iter = iter+3
 
     def optimize(self,**kwargs):

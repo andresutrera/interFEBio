@@ -172,6 +172,8 @@ class Model(object):
                                     ET.SubElement(dmy2, "d").text = blk['attributes'][i][2]
                                 else:
                                     ET.SubElement(dmy,i,type=blk['attributes'][i][0]).text = blk['attributes'][i][1]
+                            elif isinstance(blk['attributes'][i], dict):
+                                ET.SubElement(dmy, i,lc=str(blk['attributes'][i]['lc'])).text = str(blk['attributes'][i]['value'])
                             else:
                                 ET.SubElement(dmy,i).text = blk['attributes'][i]
                     continue
@@ -307,7 +309,7 @@ class Model(object):
             self.i_rigid_joint = 1
 
             for i in range(len(boundary.bcs)):
-                print("IIIIIIIII",i)
+                #print("IIIIIIIII",i)
                 step = boundary.bcs[i]
                 if len(step['fixed']) > 0:
                     for i,stepFixed in enumerate(step['fixed']):

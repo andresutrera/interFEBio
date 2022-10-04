@@ -66,8 +66,17 @@ class _caso:
                     if(const.tag in self.parameters):
                         #print(pars[const.tag])
                         const.text = '{:.20e}'.format(pars[const.tag])
-                        #print(const.tag,const.text)
-        #print(os.path.join(self.current_directory, 'iter'+str(iter),self.subFolder))
+
+#TODO Incluir childs de material en la busqueda.
+        for material in root.findall('.//elastic'):
+            for const in material:
+                if(const.tag in self.parameters):
+                    const.text = '{:.20e}'.format(pars[const.tag])
+        for material in root.findall('.//damage'):
+            for const in material:
+                if(const.tag in self.parameters):
+                    const.text = '{:.20e}'.format(pars[const.tag])
+
         tree.write(os.path.join(self.current_directory, 'iters/iter'+str(iter),self.subFolder)+'/'+self.modelName,encoding='ISO-8859-1', xml_declaration=True)
 
         # for p in pars.keys():

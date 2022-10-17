@@ -54,23 +54,28 @@ class Model(object):
         self.output = ET.SubElement(self.root,"Output")
         self.plotfile = ET.SubElement(self.output,"plotfile",type="febio")
         self.initialBoundary = ET.SubElement(self.root,'Boundary')
-        self.initialConstraint = ET.SubElement(self.root,"Rigid")
+        self.initialRigidConstraint = ET.SubElement(self.root,"Rigid")
+        self.initialConstraint = ET.SubElement(self.root,"Constraints")
+
         self.initialContact = ET.SubElement(self.root,"Contact")
         self.stepMain = ET.SubElement(self.root,"Step")
         #self.contactMain = ET.SubElement(self.root,"Step")
         self.steps = []
         self.boundary = []
+        self.rigidConstraint = []
         self.constraint = []
         self.load = []
         self.contactMain = []
         self.i_rigidConstraint = 1
+        self.i_constraint = 1
         cnt = 0
         for i in steps:
             self.steps.append(ET.SubElement(self.stepMain,"step", name=list(i.keys())[0]))
             #ET.SubElement(self.steps[cnt],"Module", type=i[list(i.keys())[0]])
             self.boundary.append(ET.SubElement(self.steps[cnt],"Boundary"))
             self.load.append(ET.SubElement(self.steps[cnt],"Loads"))
-            self.constraint.append(ET.SubElement(self.steps[cnt],"Rigid"))
+            self.rigidConstraint.append(ET.SubElement(self.steps[cnt],"Rigid"))
+            self.constraint.append(ET.SubElement(self.steps[cnt],"Constraints"))
             self.contactMain.append(ET.SubElement(self.steps[cnt],"Contact"))
             cnt += 1
 
@@ -166,22 +171,31 @@ class Model(object):
                     if blk['attributes'] is not None:
                         for i in list(blk['attributes'].keys()):
                             if isinstance(blk['attributes'][i], list):
+
                                 if 'vector' == blk['attributes'][i][0]:
                                     dmy2 = ET.SubElement(dmy, i, type=blk['attributes'][i][0])
                                     ET.SubElement(dmy2, "a").text = blk['attributes'][i][1]
                                     ET.SubElement(dmy2, "d").text = blk['attributes'][i][2]
                                 else:
                                     ET.SubElement(dmy,i,type=blk['attributes'][i][0]).text = blk['attributes'][i][1]
-                            elif isinstance(blk['attributes'][i], dict):
-                                ET.SubElement(dmy, i,lc=str(blk['attributes'][i]['lc'])).text = str(blk['attributes'][i]['value'])
+
+                            # elif isinstance(blk['attributes'][i], dict):
+                            #     ET.SubElement(dmy, i,lc=str(blk['attributes'][i]['lc'])).text = str(blk['attributes'][i]['value'])
+
                             else:
-                                ET.SubElement(dmy,i).text = blk['attributes'][i]
+                                param = ET.SubElement(dmy,i)
+                                param.text = str(blk['attributes'][i])
+                                if(i in blk['subattributes']):
+                                    for subattr in blk['subattributes'][i]:
+                                        param.set(subattr, str(blk['subattributes'][i][subattr]))
+                                
                     continue
                 elif level > len(levels) - 1:
                     dmy = ET.SubElement(levels[level-1],blk['btype'])
                     levels.append(dmy)
                 else:
                     dmy = ET.SubElement(levels[level-1],blk['btype'])
+
                 if blk['mtype'] is not None:
                     dmy.attrib['type'] = blk['mtype']
 
@@ -195,7 +209,11 @@ class Model(object):
                             else:
                                 ET.SubElement(dmy,i,type=blk['attributes'][i][0]).text = blk['attributes'][i][1]
                         else:
-                            ET.SubElement(dmy,i).text = blk['attributes'][i]
+                            param = ET.SubElement(dmy,i)
+                            param.text = str(blk['attributes'][i])
+                            if(i in blk['subattributes']):
+                                for subattr in blk['subattributes'][i]:
+                                    param.set(subattr, str(blk['subattributes'][i][subattr]))
 
 
 
@@ -253,6 +271,8 @@ class Model(object):
                             ET.SubElement(shellDom, 'shell_normal_nodal').text = '1'
                         else:
                             ET.SubElement(self.meshDomains, 'SolidDomain', name=elset, mat=mat.mname)
+
+
 
             if mesh.elementData:
                 #self.meshData = ET.SubElement(self.root,"MeshData")
@@ -512,8 +532,19 @@ class Model(object):
                             else:
                                 ET.SubElement(self.bfblk[cnt],a).text = str(bf['attributes'][a])
 
+
+
     #TODO: Check constraint format in spec 3.0
-    def addConstraint(self,step=None,matid=None,dof=None,type=None, lc=None,scale=None,relative=None):
+        """
+        Add rigid constraint to the .feb file.
+
+        Args:
+        ----------
+
+            step : Load object containing the loads at each step.
+
+        """
+    def addRigidConstraint(self,step=None,matid=None,dof=None,type=None, lc=None,scale=None,relative=None):
         if matid is None:
             print("WARNING: No material ID was specified.  Skipping constraint definition...")
             pass
@@ -522,9 +553,9 @@ class Model(object):
             pass
         name = "RigidConstraint"+str(self.i_rigidConstraint)
         if step == 0 or step is None:
-            parent = ET.SubElement(self.initialConstraint,"rigid_constraint", name=name, type=type)
+            parent = ET.SubElement(self.initialRigidConstraint,"rigid_constraint", name=name, type=type)
         else:
-            parent = ET.SubElement(self.constraint[step-1],"rigid_constraint", name=name, type=type)
+            parent = ET.SubElement(self.rigidConstraint[step-1],"rigid_constraint", name=name, type=type)
 
         ET.SubElement(parent,'rb').text = str(matid)
         if ',' in dof:
@@ -539,6 +570,48 @@ class Model(object):
                 reltxt = '0'
             ET.SubElement(parent,'relative').text = reltxt
 
+
+
+
+
+    def addConstraint(self,step=None,type=None, arguments={}, selection=None):
+        if type is None:
+            print("WARNING: No constraint type was specified.  Skipping constraint definition...")
+            pass
+    
+        defaults = {
+            'prestrain' : {'update' : 1, 'tolerance' : 0.1, 'min_iters' : 0, 'max_iters' : -1},
+            'warp-image' : {'laugon' : 'penalty', 'altol' : 0.1, 'penalty' : 0,  'blur' : 0, 'range_min' : '0,0,0', 'range_max' : '1,1,1'},
+            'volume' :        {'laugon' : 0, 'augtol' : 0.2, 'penalty' : 1},
+            'symmetry plane' : {'laugon' : 1, 'tol' : 0.2, 'penalty' : 1, 'minaug' : 0, 'maxaug' : 10},
+            'fixed normal displacement' : {'laugon' : 1, 'tol' : 0.2, 'penalty' : 1, 'minaug' : 0, 'maxaug' : 10, 'shell_bottom' : 0}
+        }
+
+        
+        if type not in defaults:
+            print("WARNING: ", type," constraint is not defined or supported.  Skipping constraint definition...")
+            pass    
+
+        names = {'prestrain' : 'Prestrain', 'warp-image' : 'WarpImage', 'volume' : 'Volume', 'symmetry plane' : 'SymmetryPlane', 'fixed normal displacement' : 'FixedNormalDisplacement'}
+
+        name = "{}{}".format(names[type],self.i_constraint)
+
+        if step == 0 or step is None:
+            if(type == 'prestrain' or type == 'warp-image'):
+                constElement = ET.SubElement(self.initialConstraint,"constraint", type=type, name=name)
+            else: #The rest of constraints (fixedNormalDisp, SymmetryPlane, Volume) requires a surface selection.
+                constElement = ET.SubElement(self.initialConstraint,"constraint", type=type, name=name, surface=str(selection))
+        else:
+            if(type == 'prestrain' or type == 'warp-image'):
+                constElement = ET.SubElement(self.constraint[step-1],"constraint", type=type, name=name)
+            else: #The rest of constraints (fixedNormalDisp, SymmetryPlane, Volume) requires a surface selection.
+                constElement = ET.SubElement(self.constraint[step-1],"constraint", type=type, name=name, surface=str(selection))
+
+  
+        defaults[type].update(arguments) #Update the default parameters with the user dict.
+
+        for key in defaults[type]:
+            ET.SubElement(constElement,key).text = "{}".format(defaults[type][key])
 
 
 

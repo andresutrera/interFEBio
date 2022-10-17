@@ -30,10 +30,11 @@ import signal
 from scipy import interpolate
 
 
-class _caso:
+class case:
 
-    def __init__(self,modelName=None,matID=None,subFolder=None,expData=None,simFcn=None,weights=None):
+    def __init__(self,name = None,modelName=None,matID=None,subFolder=None,expData=None,simFcn=None,weights=None, isTask=False):
 
+        self.name = name
         self.modelName = modelName
         self.modelBinary = modelName.split('.feb')[0]+'.xplt'
         self.matID = matID
@@ -43,6 +44,10 @@ class _caso:
         self.simFcn = simFcn
         self.parameters = []
         self.weights = weights
+        self.isTask = isTask
+
+        self.originalTree = ET.parse(self.modelName)
+
 
         if not isinstance(self.expData, dict):
             self.expData = {'default' : self.expData}
@@ -55,9 +60,9 @@ class _caso:
         self.parameters.append(param)
 
     def writeCase(self,params,iter):
+
         pars = dict(params.valuesdict())
-        originalTree = ET.parse(self.modelName)
-        tree = originalTree
+        tree = self.originalTree
         root = tree.getroot()
         for material in root.findall('.//material'):
             if(material.attrib['id'] == str(self.matID) or material.attrib['name'] == str(self.matID)):
@@ -95,6 +100,8 @@ class _caso:
         #                         #print(const.tag,const.text)
         #         #print(os.path.join(self.current_directory, 'iter'+str(iter),self.subFolder))
         #         tree.write(os.path.join(self.current_directory, 'iter'+str(iter),self.subFolder,p)+'/'+self.modelName.split('.')[0]+'_'+p+".feb",encoding='ISO-8859-1', xml_declaration=True)
+
+
 
     def verifyFolders(self,iter,p):
         if not os.path.exists('iters'):
@@ -156,12 +163,18 @@ class fit:
         self.len1 = dict()
         signal.signal(signal.SIGINT, self._signal_handler)
         self.pid = dict()
+        self.pidTask = dict()
+        
 
         self.casos = dict()
+        self.tasks = dict()
+        self.tasksFcns = dict()
         self.exp = dict()
         self.done = 0
         self.thisIter = 0
         self.disp1 = dict()
+
+
 
 
     def addCase(self,name=None,matID=None,modelName=None,subFolder=None,expData=None,simFcn=None,weights=None):
@@ -183,7 +196,14 @@ class fit:
             simFcn (fuinction): Function that handles the result calculation of the simulation. Needs to be written in terms of the xplt class functions.
 
         '''
-        self.casos[name] = _caso(modelName=modelName,matID=matID,subFolder=subFolder,expData=expData,simFcn=simFcn,weights=weights)
+        self.casos[name] = case(modelName=modelName,matID=matID,subFolder=subFolder,expData=expData,simFcn=simFcn,weights=weights)
+
+    def addTask(self, name=None,matID=None,modelName=None,subFolder=None):
+        self.tasks[name] = case(modelName=modelName,matID=matID,subFolder=subFolder,isTask=True)
+
+    def addTaskFcn(self, name=None, fcn=None):
+        self.tasksFcns[name] = fcn
+
 
     def _updateParamList(self):
         #os.environ['OMP_NUM_THR        # for par in pars.keys():
@@ -195,19 +215,28 @@ class fit:
         for key in self.parVals.keys():
             for caso in self.casos:
                 self.casos[caso].addParameter(key)
+            for caso in self.tasks:
+                self.tasks[caso].addParameter(key)               
 
-    def _run(self,caso,dh):
+    def _run(self,caso):
 
-        if(dh == ''):
-            p = subprocess.Popen(["febio3 -i "+self.casos[caso].modelName+' -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/')
-            print("Running simulation "+os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/'+self.casos[caso].modelName+ ". PID: ",p.pid)
-        else:
-            p = subprocess.Popen(["febio3 -i "+self.casos[caso].modelName.split('.')[0]+'_'+dh+'.feb -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder,dh)+'/')
-            print("Running simulation "+os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/'+self.casos[caso].modelName.split('.')[0]+'_'+dh+'.feb'+ ". PID: ",p.pid)
+        p = subprocess.Popen(["febio3 -i "+self.casos[caso].modelName+' -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/')
+        print("Running simulation "+os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/'+self.casos[caso].modelName+ ". PID: ",p.pid)
         self.pid[caso] = p.pid
         p.communicate()
         p.wait()
         #sys.exit()
+
+
+    def _runTask(self,caso):
+
+        p = subprocess.Popen(["febio3 -i "+self.tasks[caso].modelName+' -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iters/iter'+str(self.iter),self.tasks[caso].subFolder)+'/')
+        print("Running simulation "+os.path.join('iters/iter'+str(self.iter),self.tasks[caso].subFolder)+'/'+self.tasks[caso].modelName+ ". PID: ",p.pid)
+        self.pidTask[caso] = p.pid
+        p.communicate()
+        p.wait()
+        #sys.exit()
+
 
     def _expToFunction(self):
         self.expfcn = dict()
@@ -250,14 +279,31 @@ class fit:
     def _residual(self,p):
         #print(self.iter)
         parameter = dict(p.valuesdict())
+        for task in self.tasksFcns:
+            self.tasks[task].verifyFolders(self.iter,p)
+            self.tasks[task].writeCase(p,self.iter)
+
+        z = []
+        for caso in self.tasks:
+            t = threading.Thread(target=self._runTask, args=(caso,))
+            t.start()
+            z.append(t)
+        for t in z:
+            t.join()
+
+
+        for task in self.tasksFcns:
+            returnTree = self.tasksFcns[task](self.iter, self.casos, self.tasks)
+            self.casos['ring'].originalTree = returnTree
+
+
         for caso in self.casos:
             self.casos[caso].verifyFolders(self.iter,p)
             self.casos[caso].writeCase(p,self.iter)
-        #if(self.thisIter != self.iter):
+
         z = []
-        #if(self.iter>=4):
         for caso in self.casos:
-            t = threading.Thread(target=self._run, args=(caso,''))
+            t = threading.Thread(target=self._run, args=(caso,))
             t.start()
             z.append(t)
         for t in z:
@@ -334,6 +380,7 @@ class fit:
         print('You pressed Ctrl+C!')
         print("Killing the running simulations:")
         print(self.pid)
+        print(self.pidTask)
         print()
         print("***********************************")
         print("***********************************")
@@ -354,4 +401,32 @@ class fit:
             except:
                 print("Parent process no longer exists.")
                 continue
+
+
+        for key in self.pidTask:
+            try:
+                parent = psutil.Process(self.pidTask[key])
+            except:
+                continue
+            for child in parent.children(recursive=True):  # or parent.children() for recursive=False
+                try:
+                    child.kill()
+                except:
+                    print("Child process no longer exists.")
+                    continue
+            try:
+                parent.kill()
+            except:
+                print("Parent process no longer exists.")
+                continue
+
         sys.exit(0)
+
+
+    def initMsg(self):
+        print(" _       _            _____ _____ ____  _      ") 
+        print("(_)_ __ | |_ ___ _ __|  ___| ____| __ )(_) ___  ")
+        print("| | '_ \| __/ _ \ '__| |_  |  _| |  _ \| |/ _ \ ")
+        print("| | | | | ||  __/ |  |  _| | |___| |_) | | (_) |")
+        print("|_|_| |_|\__\___|_|  |_|   |_____|____/|_|\___/ ")
+        print("                                                ")

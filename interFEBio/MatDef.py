@@ -20,15 +20,16 @@ class MatDef(object):
 
         matid(int)          : Material ID.
 
-        attributes(dict)    : Attributes of the material
+        subattributes(dict) : Subattributes of the material (type, lc, etc...)
 
     '''
 
-    def __init__(self,mtype=None,elsets=None,mname=None,matid=None,attributes=None):
+    def __init__(self,mtype=None,elsets=None,mname=None,matid=None,attributes=None, subattributes={}):
         if not matid:
             print("ERROR: You must specify a material id! Terminating execution...")
             raise SystemExit
         self.attributes = attributes
+        self.subattributes = subattributes
         self.matid = matid
         self.mtype = mtype
         if isinstance(elsets,list):
@@ -40,7 +41,7 @@ class MatDef(object):
         #create the root material block
         self.addBlock(0,'material')
 
-    def addBlock(self,branch=None,btype=None,mtype=None,attributes=None):
+    def addBlock(self,branch=None,btype=None,mtype=None,attributes=None, subattributes={}):
         '''
         Add block definition to list of blocks in material
 
@@ -54,13 +55,17 @@ class MatDef(object):
             matid(int)          : Material ID. (integer if root, False otherwise)
 
             attributes(dict)    : Attributes of the material
+
+            subattributes(dict of dicts) : Subattributes of the material ({'type':'map', 'lc':1})
         '''
         if branch == 0:
             attributes = self.attributes
+            subattributes = self.subattributes
         blk = {'branch': branch,
                'btype': btype,
                'mtype': mtype,
-               'attributes': attributes}
+               'attributes': attributes,
+               'subattributes' : subattributes}
 
         self.blocks.append(blk)
 

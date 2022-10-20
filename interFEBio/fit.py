@@ -221,7 +221,7 @@ class fit:
     def _run(self,caso):
 
         p = subprocess.Popen(["febio3 -i "+self.casos[caso].modelName+' -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/')
-        print("Running simulation "+os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/'+self.casos[caso].modelName+ ". PID: ",p.pid)
+        print("\t Running simulation "+os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/'+self.casos[caso].modelName+ ". PID: ",p.pid)
         self.pid[caso] = p.pid
         p.communicate()
         p.wait()
@@ -231,7 +231,7 @@ class fit:
     def _runTask(self,caso):
 
         p = subprocess.Popen(["febio3 -i "+self.tasks[caso].modelName+' -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iters/iter'+str(self.iter),self.tasks[caso].subFolder)+'/')
-        print("Running simulation "+os.path.join('iters/iter'+str(self.iter),self.tasks[caso].subFolder)+'/'+self.tasks[caso].modelName+ ". PID: ",p.pid)
+        print("\t Running simulation "+os.path.join('iters/iter'+str(self.iter),self.tasks[caso].subFolder)+'/'+self.tasks[caso].modelName+ ". PID: ",p.pid)
         self.pidTask[caso] = p.pid
         p.communicate()
         p.wait()
@@ -279,6 +279,10 @@ class fit:
     def _residual(self,p):
         #print(self.iter)
         parameter = dict(p.valuesdict())
+
+
+        self.printIter(p,self.iter)
+
         for task in self.tasksFcns:
             self.tasks[task].verifyFolders(self.iter,p)
             self.tasks[task].writeCase(p,self.iter)
@@ -345,10 +349,13 @@ class fit:
         return totResid
 
     def _per_iteration(self,pars, iter, resid, *args, **kws):
-        print("ITER ",iter)
-        print("\t Params:  ",dict(pars.valuesdict()))
+        #print("ITER ",iter)
+        #print("\t Params:  ",dict(pars.valuesdict()))
+        print()
         print("\t Fitness: ",self.r2)
-        self.iter = iter+3
+        #print()
+        self.printIterFinal()
+        self.iter += 1#iter+3
 
     def optimize(self,**kwargs):
         '''
@@ -365,6 +372,7 @@ class fit:
             >>> optimize(method='basinhopping')
         '''
         self._updateParamList()
+        self.initMsg()
         self.mi = lmfit.minimize(self._residual,
                             self.p,
                             **dict(kwargs, iter_cb=self._per_iteration)
@@ -376,12 +384,12 @@ class fit:
         print()
         print("***********************************")
         print("***********************************")
-        print()
+        #print()
         print('You pressed Ctrl+C!')
-        print("Killing the running simulations:")
+        print("Killing the following simulations:")
         print(self.pid)
         print(self.pidTask)
-        print()
+        #print()
         print("***********************************")
         print("***********************************")
 
@@ -430,3 +438,14 @@ class fit:
         print("| | | | | ||  __/ |  |  _| | |___| |_) | | (_) |")
         print("|_|_| |_|\__\___|_|  |_|   |_____|____/|_|\___/ ")
         print("                                                ")
+
+    def printIter(self,p,iter):
+        print("*************************************************")
+        print("ITER ",str(iter))
+        print("\t Current Parameters:")
+        print("\t",dict(p.valuesdict()))
+        print()
+
+    def printIterFinal(self):
+        print("*************************************************")
+        print()

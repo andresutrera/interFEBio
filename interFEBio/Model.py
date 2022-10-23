@@ -70,6 +70,7 @@ class Model(object):
         self.i_constraint = 1
         cnt = 0
         for i in steps:
+            #print("IIIIIIIIIIII",i)
             self.steps.append(ET.SubElement(self.stepMain,"step", name=list(i.keys())[0]))
             #ET.SubElement(self.steps[cnt],"Module", type=i[list(i.keys())[0]])
             self.boundary.append(ET.SubElement(self.steps[cnt],"Boundary"))
@@ -330,6 +331,7 @@ class Model(object):
 
             for i in range(len(boundary.bcs)):
                 #print("IIIIIIIII",i)
+                #print(len(self.boundary), i)
                 step = boundary.bcs[i]
                 if len(step['fixed']) > 0:
                     for i,stepFixed in enumerate(step['fixed']):
@@ -345,6 +347,7 @@ class Model(object):
                         self.i_fixed+=1
 
                 if len(step['prescribed']) > 0:
+                    
                     for j,stepPrescribed in enumerate(step['prescribed']):
                         bcName = 'PrescribedDisplacement'+str(self.i_prescribed)
                         if(stepPrescribed[0] == 'nodeset'):
@@ -353,9 +356,9 @@ class Model(object):
                             bcNodeSet = bcName
                             self.nodeSets.append(ET.SubElement(self.geometry,"NodeSet",name=bcName))
                             ET.SubElement(self.nodeSets[-1], 'n', id=str(stepPrescribed[1]))
-                        self.prescribedblk.append(ET.SubElement(self.boundary[i],'bc', name=bcName, type='prescribe', node_set=bcNodeSet))
-                        ET.SubElement(self.prescribedblk[-1],'dof').text = stepPrescribed[2]
-                        ET.SubElement(self.prescribedblk[-1],'scale', lc=stepPrescribed[3]).text = stepPrescribed[4]
+                        self.prescribedblk.append(ET.SubElement(self.boundary[i-1],'bc', name=bcName, type='prescribe', node_set=bcNodeSet))
+                        ET.SubElement(self.prescribedblk[-1],'dof').text = str(stepPrescribed[2])
+                        ET.SubElement(self.prescribedblk[-1],'scale', lc=str(stepPrescribed[3])).text = str(stepPrescribed[4])
                         ET.SubElement(self.prescribedblk[-1],'relative').text = '0'
                         self.i_prescribed+=1
 
@@ -372,8 +375,8 @@ class Model(object):
                             self.nodeSets.append(ET.SubElement(self.geometry,"NodeSet",name=bcName))
                             ET.SubElement(self.nodeSets[-1], 'n', id=str(stepPrescribed[1]))
                         self.prescribedblk.append(ET.SubElement(self.boundary[i-1],'bc', name=bcName, type='prescribe', node_set=bcNodeSet))
-                        ET.SubElement(self.prescribedblk[-1],'dof').text = stepPrescribed[2]
-                        ET.SubElement(self.prescribedblk[-1],'scale', lc=stepPrescribed[3]).text = str(stepPrescribed[4])
+                        ET.SubElement(self.prescribedblk[-1],'dof').text = str(stepPrescribed[2])
+                        ET.SubElement(self.prescribedblk[-1],'scale', lc=str(stepPrescribed[3])).text = str(stepPrescribed[4])
                         ET.SubElement(self.prescribedblk[-1],'relative').text = '1'
                         self.i_prescribed+=1
 

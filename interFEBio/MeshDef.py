@@ -118,7 +118,8 @@ class MeshDef(object):
             for i in lines[elemLines[0]:elemLines[1]+1]:
                 etypeNum = i.split()[1]
                 elemNum = i.split()[0]
-                elemList = i.split()[5:]
+                numTags = int(i.split()[2])
+                elemList = i.split()[3+numTags:]
                 physicalID = int(i.split()[3])
                 if(etypeNum == '3'):
                     etype = 'quad4'

@@ -152,7 +152,9 @@ class fit:
     This class is based on lmfit library.
 
     '''
-    def __init__(self):
+    def __init__(self,skip=0):
+        self.skip=skip
+
         self.iter = 1
         self.p = lmfit.Parameters()
         self.mi = 0 #Used for saving fit results
@@ -256,9 +258,9 @@ class fit:
                 #print(self.results[case][exp])
                 actual = self.expfcn[case][exp](self.results[case][exp][0])
                 predict = self.results[case][exp][1]
-                #print("ACTUAL/PREDICT")
-                #print(actual)
-                #print(predict)
+                # print("ACTUAL/PREDICT")
+                # print(actual)
+                # print(predict)
                 R_sq = r2_score(actual, predict)
                 expStatistics[exp] = R_sq
 
@@ -287,13 +289,14 @@ class fit:
             self.tasks[task].verifyFolders(self.iter,p)
             self.tasks[task].writeCase(p,self.iter)
 
-        z = []
-        for caso in self.tasks:
-            t = threading.Thread(target=self._runTask, args=(caso,))
-            t.start()
-            z.append(t)
-        for t in z:
-            t.join()
+        if(self.iter>self.skip):
+            z = []
+            for caso in self.tasks:
+                t = threading.Thread(target=self._runTask, args=(caso,))
+                t.start()
+                z.append(t)
+            for t in z:
+                t.join()
 
 
         for task in self.tasksFcns:
@@ -305,13 +308,15 @@ class fit:
             self.casos[caso].verifyFolders(self.iter,p)
             self.casos[caso].writeCase(p,self.iter)
 
-        z = []
-        for caso in self.casos:
-            t = threading.Thread(target=self._run, args=(caso,))
-            t.start()
-            z.append(t)
-        for t in z:
-            t.join()
+
+        if(self.iter>self.skip):
+            z = []
+            for caso in self.casos:
+                t = threading.Thread(target=self._run, args=(caso,))
+                t.start()
+                z.append(t)
+            for t in z:
+                t.join()
 
         # #sys.exit()
         fun = dict()

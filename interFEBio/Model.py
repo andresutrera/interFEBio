@@ -69,6 +69,11 @@ class Model(object):
         self.i_rigidConstraint = 1
         self.i_constraint = 1
         cnt = 0
+
+
+        self.nodesets = dict()
+
+
         for i in steps:
             #print("IIIIIIIIIIII",i)
             self.steps.append(ET.SubElement(self.stepMain,"step", name=list(i.keys())[0]))
@@ -295,7 +300,7 @@ class Model(object):
         else:
             print('WARNING: No Geometry added. You need to specify a mesh and/or material object')
 
-
+        
 
     def addBoundary(self,boundary=None):
         """
@@ -312,6 +317,8 @@ class Model(object):
             self.prescribedrelblk = []
             self.contactblk = []
             self.springblk = []
+
+            
 
             self.i_fixed = 1
             self.i_prescribed = 1
@@ -349,36 +356,51 @@ class Model(object):
                 if len(step['prescribed']) > 0:
                     
                     for j,stepPrescribed in enumerate(step['prescribed']):
+                        
                         bcName = 'PrescribedDisplacement'+str(self.i_prescribed)
                         if(stepPrescribed[0] == 'nodeset'):
                             bcNodeSet = '@surface:'+stepPrescribed[1]
                         elif(stepPrescribed[0] == 'node'):
+                            if stepPrescribed[1] in self.nodesets:
+                                bcName = self.nodesets[stepPrescribed[1]]
+                            
+                            else:
+                                self.nodesets[stepPrescribed[1]] = bcName
+                                self.nodeSets.append(ET.SubElement(self.geometry,"NodeSet",name=bcName))
+                                ET.SubElement(self.nodeSets[-1], 'n', id=str(stepPrescribed[1]))
+                                self.i_prescribed+=1
                             bcNodeSet = bcName
-                            self.nodeSets.append(ET.SubElement(self.geometry,"NodeSet",name=bcName))
-                            ET.SubElement(self.nodeSets[-1], 'n', id=str(stepPrescribed[1]))
+
                         self.prescribedblk.append(ET.SubElement(self.boundary[i-1],'bc', name=bcName, type='prescribe', node_set=bcNodeSet))
                         ET.SubElement(self.prescribedblk[-1],'dof').text = str(stepPrescribed[2])
                         ET.SubElement(self.prescribedblk[-1],'scale', lc=str(stepPrescribed[3])).text = str(stepPrescribed[4])
                         ET.SubElement(self.prescribedblk[-1],'relative').text = '0'
-                        self.i_prescribed+=1
+                        #self.i_prescribed+=1
 
                     #for b in step['prescribed']:
                     #    ET.SubElement(self.prescribedblk[-1],'node',id=str(b[0]),bc=str(b[1]),lc=str(b[2])).text = str(b[3])
 
                 if len(step['prescribed relative']) > 0:
+                    print(self.nodesets)
                     for j,stepPrescribed in enumerate(step['prescribed relative']):
                         bcName = 'PrescribedDisplacement'+str(self.i_prescribed)
                         if(stepPrescribed[0] == 'nodeset'):
                             bcNodeSet = '@surface:'+stepPrescribed[1]
                         elif(stepPrescribed[0] == 'node'):
+                            if stepPrescribed[1] in self.nodesets:
+                                bcName = self.nodesets[stepPrescribed[1]]
+                            
+                            else:
+                                self.nodesets[stepPrescribed[1]] = bcName
+                                self.nodeSets.append(ET.SubElement(self.geometry,"NodeSet",name=bcName))
+                                ET.SubElement(self.nodeSets[-1], 'n', id=str(stepPrescribed[1]))
+                                self.i_prescribed+=1
                             bcNodeSet = bcName
-                            self.nodeSets.append(ET.SubElement(self.geometry,"NodeSet",name=bcName))
-                            ET.SubElement(self.nodeSets[-1], 'n', id=str(stepPrescribed[1]))
                         self.prescribedblk.append(ET.SubElement(self.boundary[i-1],'bc', name=bcName, type='prescribe', node_set=bcNodeSet))
                         ET.SubElement(self.prescribedblk[-1],'dof').text = str(stepPrescribed[2])
                         ET.SubElement(self.prescribedblk[-1],'scale', lc=str(stepPrescribed[3])).text = str(stepPrescribed[4])
                         ET.SubElement(self.prescribedblk[-1],'relative').text = '1'
-                        self.i_prescribed+=1
+                        #self.i_prescribed+=1
 
                 contactAttribDict = dict()
                 contactAttribDict['sliding-facet-on-facet'] = {'laugon' :          0,
@@ -421,6 +443,7 @@ class Model(object):
 
 
                 if len(step['contact']) > 0:
+                    print("I:",i)
 
                     ET.SubElement(self.plotfile,"var",type="contact gap")
                     ET.SubElement(self.plotfile,"var",type="contact force")
@@ -436,6 +459,7 @@ class Model(object):
                         elif c['type']=='sliding-elastic':
                             contactName = 'SlidingElasticContact'+str(self.i_sliding_elastic)
                             surfacePair = contactName
+                            print(surfacePair, self.i_sliding_elastic)
                         if(i == 0):
                             self.contactblk.append(ET.SubElement(self.initialContact,'contact',type=c['type'], name=contactName, surface_pair=surfacePair))
                         else:
@@ -447,10 +471,11 @@ class Model(object):
                         self.surfacePairs.append(ET.SubElement(self.geometry,"SurfacePair",name=contactName))
                         ET.SubElement(self.surfacePairs[-1],"primary").text = c['master']
                         ET.SubElement(self.surfacePairs[-1],"secondary").text = c['slave']
+                    
 
-
-
+        
                         cnt += 1
+                        self.i_sliding_elastic+=1
 
                 # if len(step['spring']) > 0:
                 #     for b in step['spring']:

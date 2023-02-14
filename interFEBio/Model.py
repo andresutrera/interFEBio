@@ -381,7 +381,7 @@ class Model(object):
                     #    ET.SubElement(self.prescribedblk[-1],'node',id=str(b[0]),bc=str(b[1]),lc=str(b[2])).text = str(b[3])
 
                 if len(step['prescribed relative']) > 0:
-                    #print(self.nodesets)
+                    print(self.nodesets)
                     for j,stepPrescribed in enumerate(step['prescribed relative']):
                         bcName = 'PrescribedDisplacement'+str(self.i_prescribed)
                         if(stepPrescribed[0] == 'nodeset'):
@@ -443,7 +443,7 @@ class Model(object):
 
 
                 if len(step['contact']) > 0:
-                    #print("I:",i)
+                    print("I:",i)
 
                     ET.SubElement(self.plotfile,"var",type="contact gap")
                     ET.SubElement(self.plotfile,"var",type="contact force")
@@ -459,7 +459,7 @@ class Model(object):
                         elif c['type']=='sliding-elastic':
                             contactName = 'SlidingElasticContact'+str(self.i_sliding_elastic)
                             surfacePair = contactName
-                            #print(surfacePair, self.i_sliding_elastic)
+                            print(surfacePair, self.i_sliding_elastic)
                         if(i == 0):
                             self.contactblk.append(ET.SubElement(self.initialContact,'contact',type=c['type'], name=contactName, surface_pair=surfacePair))
                         else:

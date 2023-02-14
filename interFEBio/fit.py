@@ -45,6 +45,7 @@ class case:
         self.parameters = []
         self.weights = weights
         self.isTask = isTask
+        self.parameterTask = {}
 
         self.originalTree = ET.parse(self.modelName)
 
@@ -71,16 +72,27 @@ class case:
                     if(const.tag in self.parameters):
                         #print(pars[const.tag])
                         const.text = '{:.20e}'.format(pars[const.tag])
+                
+                for submat in material.findall('.//*[@type]'):
+                    for const in submat:
+                        if(const.tag in self.parameters):
+                            #print(pars[const.tag])
+                            const.text = '{:.20e}'.format(pars[const.tag])                    
 
-#TODO Incluir childs de material en la busqueda.
-        for material in root.findall('.//elastic'):
-            for const in material:
-                if(const.tag in self.parameters):
-                    const.text = '{:.20e}'.format(pars[const.tag])
-        for material in root.findall('.//damage'):
-            for const in material:
-                if(const.tag in self.parameters):
-                    const.text = '{:.20e}'.format(pars[const.tag])
+# #TODO Incluir childs de material en la busqueda.
+#         for material in root.findall('.//elastic'):
+#             for const in material:
+#                 if(const.tag in self.parameters):
+#                     const.text = '{:.20e}'.format(pars[const.tag])
+#         for material in root.findall('.//damage'):
+#             for const in material:
+#                 if(const.tag in self.parameters):
+#                     const.text = '{:.20e}'.format(pars[const.tag])
+
+
+        #Evaluate all the parameter tasks
+        for paramTask in self.parameterTask:
+            root = self.parameterTask[paramTask](root,pars[paramTask])
 
         tree.write(os.path.join(self.current_directory, 'iters/iter'+str(iter),self.subFolder)+'/'+self.modelName,encoding='ISO-8859-1', xml_declaration=True)
 
@@ -238,6 +250,12 @@ class fit:
         p.communicate()
         p.wait()
         #sys.exit()
+
+    def addParameterTask(self,case,parameter,task,kind='case'):
+        if(kind == 'case'):
+            self.casos[case].parameterTask[parameter] = task
+        elif(kind == 'task'):
+            self.tasks[case].parameterTask[parameter] = task
 
 
     def _expToFunction(self):

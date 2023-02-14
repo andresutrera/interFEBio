@@ -43,6 +43,7 @@ class case:
         self.current_directory = os.getcwd()
         self.simFcn = simFcn
         self.parameters = []
+        self.parameterTasks = {}
         self.weights = weights
         self.isTask = isTask
 
@@ -59,28 +60,52 @@ class case:
     def addParameter(self,param):
         self.parameters.append(param)
 
+    def addParameterTask(self,param,task):
+        self.parameterTasks[param] = task
+
     def writeCase(self,params,iter):
 
         pars = dict(params.valuesdict())
         tree = self.originalTree
         root = tree.getroot()
+        #Search for material
         for material in root.findall('.//material'):
+        #Match if the material id/name is the one to be fitted
             if(material.attrib['id'] == str(self.matID) or material.attrib['name'] == str(self.matID)):
+                #Search every tag in material
                 for const in material:
                     #print(const.tag, self.parameters)
                     if(const.tag in self.parameters):
                         #print(pars[const.tag])
                         const.text = '{:.20e}'.format(pars[const.tag])
 
-#TODO Incluir childs de material en la busqueda.
-        for material in root.findall('.//elastic'):
-            for const in material:
-                if(const.tag in self.parameters):
-                    const.text = '{:.20e}'.format(pars[const.tag])
-        for material in root.findall('.//damage'):
-            for const in material:
-                if(const.tag in self.parameters):
-                    const.text = '{:.20e}'.format(pars[const.tag])
+                #Search every submaterial containing type attribute (maybe its not necessary...)
+                for submat in material.findall('.//*[@type]'):
+                    #print(submat)
+                    for const in submat:
+                        #print(const.tag, self.parameters)
+                        if(const.tag in self.parameters):
+                            #print(pars[const.tag])
+                            const.text = '{:.20e}'.format(pars[const.tag])
+
+# #TODO Incluir childs de material en la busqueda.
+#         for material in root.findall('.//elastic/solid'):
+#             for const in material:
+#                 if(const.tag in self.parameters):
+#                     const.text = '{:.20e}'.format(pars[const.tag])
+#         for material in root.findall('.//damage'):
+#             for const in material:
+#                 if(const.tag in self.parameters):
+#                     const.text = '{:.20e}'.format(pars[const.tag])
+#         for material in root.findall('.//*/solid'):
+#             print(material)
+#             for const in material:
+#                 if(const.tag in self.parameters):
+#                     const.text = '{:.20e}'.format(pars[const.tag])
+
+        #Check if there are tasks involving this sim xml tree.
+        for param in self.parameterTasks:
+            root = self.parameterTasks[param](root,pars[param])
 
         tree.write(os.path.join(self.current_directory, 'iters/iter'+str(iter),self.subFolder)+'/'+self.modelName,encoding='ISO-8859-1', xml_declaration=True)
 
@@ -152,8 +177,9 @@ class fit:
     This class is based on lmfit library.
 
     '''
-    def __init__(self):
+    def __init__(self,skip=0):
         self.iter = 1
+        self.skip = skip
         self.p = lmfit.Parameters()
         self.mi = 0 #Used for saving fit results
         now = datetime.now()
@@ -216,7 +242,13 @@ class fit:
             for caso in self.casos:
                 self.casos[caso].addParameter(key)
             for caso in self.tasks:
-                self.tasks[caso].addParameter(key)               
+                self.tasks[caso].addParameter(key)
+
+    def addParameterTask(self,case,parameter,task, kind='case'):
+        if(kind == 'case'): 
+            self.casos[case].addParameterTask(parameter,task)
+        elif(kind == 'task'):
+            self.tasks[case].addParameterTask(parameter,task)
 
     def _run(self,caso):
 
@@ -283,35 +315,36 @@ class fit:
 
         self.printIter(p,self.iter)
 
-        for task in self.tasksFcns:
-            self.tasks[task].verifyFolders(self.iter,p)
-            self.tasks[task].writeCase(p,self.iter)
+        if(self.iter > self.skip):
+            for task in self.tasksFcns:
+                self.tasks[task].verifyFolders(self.iter,p)
+                self.tasks[task].writeCase(p,self.iter)
 
-        z = []
-        for caso in self.tasks:
-            t = threading.Thread(target=self._runTask, args=(caso,))
-            t.start()
-            z.append(t)
-        for t in z:
-            t.join()
-
-
-        for task in self.tasksFcns:
-            returnTree = self.tasksFcns[task](self.iter, self.casos, self.tasks)
-            self.casos['ring'].originalTree = returnTree
+            z = []
+            for caso in self.tasks:
+                t = threading.Thread(target=self._runTask, args=(caso,))
+                t.start()
+                z.append(t)
+            for t in z:
+                t.join()
 
 
-        for caso in self.casos:
-            self.casos[caso].verifyFolders(self.iter,p)
-            self.casos[caso].writeCase(p,self.iter)
+            for task in self.tasksFcns:
+                returnTree = self.tasksFcns[task](self.iter, self.casos, self.tasks)
+                self.casos['ring'].originalTree = returnTree
 
-        z = []
-        for caso in self.casos:
-            t = threading.Thread(target=self._run, args=(caso,))
-            t.start()
-            z.append(t)
-        for t in z:
-            t.join()
+
+            for caso in self.casos:
+                self.casos[caso].verifyFolders(self.iter,p)
+                self.casos[caso].writeCase(p,self.iter)
+
+            z = []
+            for caso in self.casos:
+                t = threading.Thread(target=self._run, args=(caso,))
+                t.start()
+                z.append(t)
+            for t in z:
+                t.join()
 
         # #sys.exit()
         fun = dict()

@@ -234,7 +234,7 @@ class fit:
 
     def _run(self,caso):
 
-        p = subprocess.Popen(["febio3 -i "+self.casos[caso].modelName+' -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/')
+        p = subprocess.Popen(["febio4 -i "+self.casos[caso].modelName+' -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/')
         print("\t Running simulation "+os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/'+self.casos[caso].modelName+ ". PID: ",p.pid)
         self.pid[caso] = p.pid
         p.communicate()
@@ -244,7 +244,7 @@ class fit:
 
     def _runTask(self,caso):
 
-        p = subprocess.Popen(["febio3 -i "+self.tasks[caso].modelName+' -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iters/iter'+str(self.iter),self.tasks[caso].subFolder)+'/')
+        p = subprocess.Popen(["febio4 -i "+self.tasks[caso].modelName+' -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iters/iter'+str(self.iter),self.tasks[caso].subFolder)+'/')
         print("\t Running simulation "+os.path.join('iters/iter'+str(self.iter),self.tasks[caso].subFolder)+'/'+self.tasks[caso].modelName+ ". PID: ",p.pid)
         self.pidTask[caso] = p.pid
         p.communicate()
@@ -308,13 +308,14 @@ class fit:
             self.tasks[task].writeCase(p,self.iter)
 
         if(self.iter>self.skip):
-            z = []
-            for caso in self.tasks:
-                t = threading.Thread(target=self._runTask, args=(caso,))
-                t.start()
-                z.append(t)
-            for t in z:
-                t.join()
+            if(self.iter != 2 and self.iter != 3):
+                z = []
+                for caso in self.tasks:
+                    t = threading.Thread(target=self._runTask, args=(caso,))
+                    t.start()
+                    z.append(t)
+                for t in z:
+                    t.join()
 
 
         for task in self.tasksFcns:
@@ -328,13 +329,14 @@ class fit:
 
 
         if(self.iter>self.skip):
-            z = []
-            for caso in self.casos:
-                t = threading.Thread(target=self._run, args=(caso,))
-                t.start()
-                z.append(t)
-            for t in z:
-                t.join()
+            if(self.iter != 2 and self.iter != 3):
+                z = []
+                for caso in self.casos:
+                    t = threading.Thread(target=self._run, args=(caso,))
+                    t.start()
+                    z.append(t)
+                for t in z:
+                    t.join()
 
         # #sys.exit()
         fun = dict()
@@ -349,9 +351,13 @@ class fit:
             residualExp = dict()
             for exp in self.casos[caso].expData:
                 #print("KEY:",exp)
-                x, y = self.casos[caso].simResults(self.iter)[exp]
+                if(self.iter <= 3 ): #Ignore sims 2 and 3. they are the same
+                    x, y = self.casos[caso].simResults(1)[exp]
+                else:
+                    x, y = self.casos[caso].simResults(self.iter)[exp]
                 simResults[exp] = (x,y)
                 if(self.iter == 1):
+                    #print("LEN:",len(x))
                     self.len1[caso] = len(x)
 
                 else:

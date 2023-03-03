@@ -45,7 +45,7 @@ class MeshDef(object):
     '''
 
 
-    def __init__(self,mfile=None,mformat='manual',scale=[1.0,1.0,1.0],physicalEntities=None,print={'nodes':False,'elements':False,'elsets':False,'fsets':False, 'nsets':False}):
+    def __init__(self,mfile=None,mformat='manual',scale=[1.0,1.0,1.0],physicalEntities=None,print={'nodes':False,'elements':False,'elsets':False,'fsets':False, 'nsets':False},quiet=False):
         self.mfile = mfile
         self.mformat = mformat
         #elements[element] = {'type' : elementType, 'nodes' : [listOfNodes]}
@@ -63,6 +63,8 @@ class MeshDef(object):
         self.print = print
 
         self.physicalEntities = physicalEntities
+
+        self.quiet = quiet
 
         self.facetID = 1 #counter to assign unique IDs to surface facets defined in sets
 
@@ -132,7 +134,8 @@ class MeshDef(object):
                 elif(etypeNum == '2'):
                     etype = 'tri3'
                 else:
-                    print("Error: Gmsh element type number {} not supported. skipping".format(int(etypeNum)))
+                    if(self.quiet == False):
+                        print("Error: Gmsh element type number {} not supported. skipping".format(int(etypeNum)))
                     continue
 
                 if(physicalID in physicalNames):

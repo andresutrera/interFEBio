@@ -35,8 +35,6 @@ class data:
             self.dataTime.append(time)
     
 
-
-
     def toNumpy(self):
         self.data = [np.array(dom) for dom in self.data]
 
@@ -114,8 +112,8 @@ class xplt:
             dom_n_elems = (int(struct.unpack('I', self.reader.read())[0]))
 
 
-            # a = self.reader.search_block('PLT_DOM_NAME')
-            # dom_names = (self.reader.read(10).decode("utf-8",errors="ignore"))
+            # a = self.reader.seek_block('PLT_DOM_NAME')
+            # dom_names = (self.reader.read(a).decode("utf-8",errors="ignore"))
 
             elemDict = dict()
 
@@ -551,6 +549,29 @@ class _binaryReader:
             #print('%s' % BLOCK_TAG)
         a = struct.unpack('I', self.file.read(4))  # size of the root section
         return a[0]
+
+class domain:
+    def __init__(self, name:str = None, elemType: str = None, domainID: int = None, nElems: int = None, elements: dict = None):
+        self.name = name
+        self.elemType = elemType
+        self.domainID = domainID
+        self.nElems = nElems
+        self.elements = elements
+
+class nodeset:
+    def __init__(self, name:str = None, nNodes: int = None, nodes: dict = None):
+        self.name = name
+        self.nNodes = nNodes
+        self.nodes = nodes
+
+class surface:
+    def __init__(self, name:str = None, nSurf: int = None, nNodesPerFacet:int = None, faces: dict = None):
+        self.name = name
+        self.nSurf = nSurf
+        self.nNodesPerFacet = nNodesPerFacet
+        self.faces = faces
+
+
 
 class mesh:
     """

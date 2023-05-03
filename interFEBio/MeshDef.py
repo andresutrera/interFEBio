@@ -255,7 +255,7 @@ class MeshDef(object):
         if setname is None:
             print("WARNING: Must provide a setname. Skipping set generation...")
             pass
-        if fids is None:
+        if felems is None:
             print("WARNING: Did not specify any element IDs.  Skipping set generation...")
             pass
         if type is None:

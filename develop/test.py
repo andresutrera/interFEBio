@@ -2,10 +2,11 @@ import interFEBio
 import numpy as np
 
 
-#xplt = interFEBio.xplt('jobs/solid-shell.xplt')
-xplt = interFEBio.xplt('ringPS.xplt')
+xplt = interFEBio.xplt('jobs/solid-shell.xplt')
+#xplt = interFEBio.xplt('ringPS.xplt')
 print(xplt.dictionary)
-print(xplt.mesh.domain[2])
+print(xplt.mesh.parts)
+print(xplt.mesh.listNodesets())
 xplt.readAllStates()
 
 

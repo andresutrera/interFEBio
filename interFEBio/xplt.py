@@ -14,6 +14,7 @@ from numpy import *
 import sys
 import pdb
 import warnings
+from typing import Dict
 
             
 class data:
@@ -76,16 +77,17 @@ class xplt:
 
 
     def _readMesh(self):
+        #self.mesh: mesh
         self.mesh = mesh() #Initialize mesh object.
 
-        a = self.reader.search_block('PLT_MESH')
-        a = self.reader.search_block('PLT_NODE_SECTION')
-        a = self.reader.search_block('PLT_NODE_HEADER')
-        a = self.reader.search_block('PLT_NODE_SIZE')
+        self.reader.search_block('PLT_MESH')
+        self.reader.search_block('PLT_NODE_SECTION')
+        self.reader.search_block('PLT_NODE_HEADER')
+        self.reader.search_block('PLT_NODE_SIZE')
         nodeSize = (int(struct.unpack('I', self.reader.read())[0]))
-        a = self.reader.search_block('PLT_NODE_DIM')
+        self.reader.search_block('PLT_NODE_DIM')
         nodeDim = (int(struct.unpack('I', self.reader.read())[0]))
-        a = self.reader.search_block('PLT_NODE_COORDS')
+        self.reader.search_block('PLT_NODE_COORDS')
         node_coords = zeros([nodeSize, nodeDim])
         #node_coords = zeros([1, nodeDim])
         for i in range(nodeSize):
@@ -110,14 +112,15 @@ class xplt:
 
             self.reader.search_block('PLT_DOM_ELEMS')
             dom_n_elems = (int(struct.unpack('I', self.reader.read())[0]))
+            isDomName = self.reader.search_block('PLT_DOM_NAME')
 
-
-            # a = self.reader.seek_block('PLT_DOM_NAME')
-            # dom_names = (self.reader.read(a).decode("utf-8",errors="ignore"))
-
+            if(isDomName > 0):
+                dom_names = (self.reader.read(isDomName).decode("utf-8",errors="ignore"))
+            else:
+                dom_names = None
             elemDict = dict()
 
-            a = self.reader.search_block('PLT_DOM_ELEM_LIST')
+            self.reader.search_block('PLT_DOM_ELEM_LIST')
 
             etype = Elem_Type(dom_elem_type).name
             ne = nodesPerElementClass[etype]
@@ -127,15 +130,9 @@ class xplt:
                 element = zeros(ne + 1, dtype=int)
                 for j in range(ne + 1):
                     element[j] = struct.unpack('I', self.reader.read())[0]
-                elemDict[element[0]] = element[1:]
+                elemDict[element[0]-1] = element[1:]
 
-            if(dom_part_id in self.mesh.domain.keys()):
-                self.mesh.domain[dom_part_id]['elements'].update(elemDict)
-                self.mesh.domain[dom_part_id]['nElems'] = dom_n_elems+self.mesh.domain[dom_part_id]['nElems']
-            else:
-                domainDict = {'elemType' : Elem_Type(dom_elem_type).name, 'partID' : dom_part_id, 'nElems' : dom_n_elems, 'elements' : elemDict}
-                #keyName = list(self.mesh.parts.keys())[list(self.mesh.parts.values()).index(dom_part_id)]
-                self.mesh.domain[dom_part_id] = domainDict
+            self.mesh.domain[dom_part_id-1] = domainClass(name = dom_names, elemType = Elem_Type(dom_elem_type).name, domainID=dom_part_id-1, nElems = dom_n_elems, elements=elemDict)
             idomain+=1
 
 
@@ -186,11 +183,12 @@ class xplt:
                     #faces = (face)
                     # skip junk
                     self.reader.file.seek(cur_cur + a, 0)
-                self.mesh.surface[surface_ids] = {'name' : surface_names,
-                                                    'nFaces' : surface_faces,
-                                                    'nNodesPerFacet' : face_max_facet_nodes,
-                                                    'faces' : facesDict
-                                                    }
+                # self.mesh.surface[surface_ids] = {'name' : surface_names,
+                #                                     'nFaces' : surface_faces,
+                #                                     'nNodesPerFacet' : face_max_facet_nodes,
+                #                                     'faces' : facesDict
+                #                                     }
+                self.mesh.surface[surface_ids-1] = surfaceClass(name = surface_names, nSurf=surface_faces, nNodesPerFacet=face_max_facet_nodes, faces=facesDict)
                 #print(surface_names)
 
 
@@ -222,11 +220,13 @@ class xplt:
                     nodes = []
                     for j in range(nodeset_nodes):
                         nodes.append(struct.unpack('I', self.reader.read())[0])
-                self.mesh.nodeset[nodeset_ids] = {
-                                                    'name' : nodeset_names,
-                                                    'nodeNumber' : nodeset_nodes,
-                                                    'nodes' : nodes
-                                                    }
+                # self.mesh.nodeset[nodeset_ids] = {
+                #                                     'name' : nodeset_names,
+                #                                     'nodeNumber' : nodeset_nodes,
+                #                                     'nodes' : nodes
+                #                                     }
+                print(nodeset_ids)
+                self.mesh.nodeset[nodeset_ids-1] = nodesetClass(name=nodeset_names, nNodes=nodeset_nodes, nodes=nodes)
 
     def _readParts(self):
         a = self.reader.search_block('PLT_PARTS_SECTION')
@@ -236,7 +236,7 @@ class xplt:
             partID = (struct.unpack('I', self.reader.read())[0])
             a = self.reader.search_block('PLT_PART_NAME')
             partName = (self.reader.read(a).decode("utf-8",errors="ignore").split('\x00')[0])
-            self.mesh.parts[partName] = partID
+            self.mesh.parts[partName] = partClass(name=partName, ID=partID)
 
         #print(self.mesh.parts)
 
@@ -550,30 +550,44 @@ class _binaryReader:
         a = struct.unpack('I', self.file.read(4))  # size of the root section
         return a[0]
 
-class domain:
+
+
+class domainClass:
     def __init__(self, name:str = None, elemType: str = None, domainID: int = None, nElems: int = None, elements: dict = None):
         self.name = name
         self.elemType = elemType
         self.domainID = domainID
         self.nElems = nElems
         self.elements = elements
-
-class nodeset:
+    def __repr__(self) -> str:
+        return(str(self.name))
+    
+class nodesetClass:
     def __init__(self, name:str = None, nNodes: int = None, nodes: dict = None):
         self.name = name
         self.nNodes = nNodes
         self.nodes = nodes
 
-class surface:
+    def __repr__(self) -> str:
+        return(str(self.name))
+
+class surfaceClass:
     def __init__(self, name:str = None, nSurf: int = None, nNodesPerFacet:int = None, faces: dict = None):
         self.name = name
         self.nSurf = nSurf
         self.nNodesPerFacet = nNodesPerFacet
         self.faces = faces
+    def __repr__(self) -> str:
+        return(str(self.name))
+    
+class partClass:
+    def __init__(self, name:str = None, ID: int = None):
+        self.name = name
+        self.ID = ID
+    def __repr__(self) -> str:
+        return(str(self.ID))
 
-
-
-class mesh:
+class mesh():
     """
     Child class inside the xplt main class that allows to access information of the mesh.
 
@@ -604,12 +618,13 @@ class mesh:
 
     """
     def __init__(self):
-        self.domain = dict()
-        self.nodeset = dict()
-        self.parts = dict()
-        self.surface = dict()
+        self.domain: Dict[int,domainClass] = dict()
+        self.nodeset: Dict[int,nodesetClass] = dict()
+        self.surface: Dict[int,surfaceClass] = dict()
+        self.parts: Dict[str,partClass] = dict()
 
-    def listRegions(self):
+    
+    def listRegions(self) -> list:
         """
         List all the regions of the mesh
 
@@ -627,7 +642,7 @@ class mesh:
         ----------
                 List of surface names
         """
-        return [self.surface[x]['name'] for x in self.surface.keys()]
+        return [self.surface[x].name for x in self.surface.keys()]
 
     def listNodesets(self):
         """
@@ -637,7 +652,7 @@ class mesh:
         ----------
                 List of nodeset names
         """
-        return [self.nodeset[x]['name'] for x in self.nodeset.keys()]
+        return [self.nodeset[x].name for x in self.nodeset.keys()]
 
     def regionID(self,name):
         """
@@ -650,10 +665,10 @@ class mesh:
 
         Return:
         ----------
+        regionID (int)
 
-            region ID (int)
         """
-        return self.parts[name]
+        return self.parts[name].ID
 
     def surfaceID(self,name):
         """
@@ -670,9 +685,10 @@ class mesh:
             surface ID (int)
         """
         for key in self.surface.keys():
-            if(self.surface[key]['name'] == name):
+            if(self.surface[key].name == name):
                 return key
-    def nodesetID(self,name):
+
+    def nodesetID(self,name:str = None) -> str:
         """
         Return the integer ID of a nodeset by its name
 
@@ -686,8 +702,10 @@ class mesh:
 
             nodeset ID (int)
         """
+        if(name is None):
+            raise Exception("Name cant be empty")
         for key in self.nodeset.keys():
-            if(self.nodeset[key]['name'] == name):
+            if(self.nodeset[key].name == name):
                 return key
 
     def domainElements(self,domain):
@@ -704,19 +722,21 @@ class mesh:
 
             dictionary of elements in that domain.
         """
-        return self.domain[domain]['elements']
+        return self.domain[domain].elements
 
-    def allElements(self):
-        """
-        Return a dictionary of all the elements of the mesh.
+    # def allElements(self):
+    #     """
+    #     Return a dictionary of all the elements of the mesh.
 
-        Return:
-        ----------
+    #     Return:
+    #     ----------
 
-            dictionary of all the elements of the mesh.
-        """
-        totalElementDict = dict()
-        for key in self.domain.keys():
-            for elem in self.domain[key]['elements']:
-                totalElementDict[elem] = self.domain[key]['elements'][elem]
-        return totalElementDict
+    #         dictionary of all the elements of the mesh.
+    #     """
+    #     totalElementDict = dict()
+    #     for key in self.domain.keys():
+    #         for elem in self.domain[key]['elements']:
+    #             totalElementDict[elem] = self.domain[key]['elements'][elem]
+    #     return totalElementDict
+    def __repr__(self) -> str:
+        return("Domains:\t{}\nNodesets:\t{}\nSurfaces:\t{}\nParts:\t\t{}".format(self.domain,self.nodeset,self.parts,self.surface))

@@ -9,6 +9,6 @@ class plotVar():
         self.name = name
 
     def tree(self):
-        tree = ET.Element('var', name=self.name)
+        tree = ET.Element('var', type=self.name)
         return tree
     

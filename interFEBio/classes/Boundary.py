@@ -33,7 +33,12 @@ class _var():
 
 class fixedDisplacement():
     _dof = Literal['x','y','z']
-    def __init__(self,name: str = None, nset: list|str|int = None, x_dof:int|str  = 0,y_dof:int|str  = 0,z_dof:int|str  = 0):
+    def __init__(self,
+                 name       : str = None,
+                 nset       : list|str|int = None,
+                 x_dof      : int|str  = 0,
+                 y_dof      : int|str  = 0,
+                 z_dof      : int|str  = 0):
         
         self.name = name
         if isinstance(nset, list):
@@ -60,7 +65,7 @@ class fixedDisplacement():
 
 class prescribedDisplacement():
     _dof = Literal['x','y','z']
-    def __init__(self,name: str = None, nset: list|str|int = None, dof: _dof = None,lc:str|int = 1, scale: float = 1.0, relative: bool = False, attributes: dict = {}):
+    def __init__(self,name: str = None, nset: list|str|int = None, dof: _dof = None,lc:str|int = 1, value: float = 1.0, relative: bool = False, attributes: dict = {}):
         
         self.name = name
         self.lc = lc
@@ -74,13 +79,13 @@ class prescribedDisplacement():
             self.nset = _var('node',nset)
 
         self.dof =      _var('dof',dof)
-        self.scale =    _var('scale',scale,attributes)
+        self.value =    _var('value',value,attributes)
         self.relative = _var('relative',relative)
 
     def tree(self):
         tree = ET.Element('bc', name=self.name, node_set=self.nset.value, type='prescribed displacement')
         tree.append(self.dof.varTree())
-        tree.append(self.scale.varTree())
+        tree.append(self.value.varTree())
         tree.append(self.relative.varTree())
         return tree
     

@@ -5,11 +5,18 @@ from typing import Literal
     
 
 class loadController():
-    def __init__(self,id: str|int = 1, name:str = 'LC1', type: Literal['loadcurve'] = 'loadcurve', interpolate: Literal['LINEAR'] = 'LINEAR', extend: Literal['EXTRAPOLATE'] = 'EXTRAPOLATE', points: list = [[0,0], [1,1]]):
+    def __init__(self,
+                 id: str|int = 1,
+                 name:str = 'LC1',
+                 type: Literal['loadcurve'] = 'loadcurve',
+                 interpolate: Literal['LINEAR'] = 'LINEAR',
+                 extend: Literal['EXTRAPOLATE'] = 'EXTRAPOLATE',
+                 points: list = [[0,0], [1,1]]):
         
         self.id = id
         self.name = name
         self.type = type
+
         self.interpolate = interpolate
         self.extend = extend
         self.points = points

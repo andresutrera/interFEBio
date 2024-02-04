@@ -274,7 +274,7 @@ class Model(object):
                         type = mesh.elsets[elset]['type']
                         if type in ['quad4', 'tri3']:
                             shellDom = ET.SubElement(self.meshDomains, 'ShellDomain', name=elset, mat=mat.mname)
-                            ET.SubElement(shellDom, 'shell_normal_nodal').text = '1'
+                            #ET.SubElement(shellDom, 'shell_normal_nodal').text = '1'
                         else:
                             ET.SubElement(self.meshDomains, 'SolidDomain', name=elset, mat=mat.mname)
 
@@ -381,7 +381,7 @@ class Model(object):
                     #    ET.SubElement(self.prescribedblk[-1],'node',id=str(b[0]),bc=str(b[1]),lc=str(b[2])).text = str(b[3])
 
                 if len(step['prescribed relative']) > 0:
-                    print(self.nodesets)
+                    #print(self.nodesets)
                     for j,stepPrescribed in enumerate(step['prescribed relative']):
                         bcName = 'PrescribedDisplacement'+str(self.i_prescribed)
                         if(stepPrescribed[0] == 'nodeset'):

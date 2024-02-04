@@ -124,6 +124,7 @@ class xplt:
 
             etype = Elem_Type(dom_elem_type).name
             ne = nodesPerElementClass[etype]
+            #print("ELEMSSSSSSSSS:",ne)
   
             while self.reader.check_block('PLT_ELEMENT'):
                 a = self.reader.search_block('PLT_ELEMENT', print_tag=0)
@@ -225,7 +226,7 @@ class xplt:
                 #                                     'nodeNumber' : nodeset_nodes,
                 #                                     'nodes' : nodes
                 #                                     }
-                print(nodeset_ids)
+                #print(nodeset_ids)
                 self.mesh.nodeset[nodeset_ids-1] = nodesetClass(name=nodeset_names, nNodes=nodeset_nodes, nodes=nodes)
 
     def _readParts(self):
@@ -344,7 +345,7 @@ class xplt:
                 stepDiff = stepList[i]
             else:
                 stepDiff = stepList[i] - stepList[i-1]
-            print(stepDiff)
+            #print(stepDiff)
             if(i>0):
                 stepDiff-=1
 

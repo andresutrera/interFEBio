@@ -45,7 +45,7 @@ class data:
         return self.data[domain]
     
     def getDataTime(self):
-        return self.dataTime
+        return np.array(self.dataTime)
 
 
 

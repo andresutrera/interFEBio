@@ -1,32 +1,17 @@
-'''
-Created on 2021-11-22
-
-@author: Andrés Utrera
-University of Santiago, Chile
-'''
-from distutils.core import setup
+from setuptools import setup
 
 setup(
-    name = 'interFEBio',
-    version = '0.1',
-    packages = ['interFEBio',],
-    py_modules =    [   'interFEBio.__init__',
-                        'interFEBio.xplt',
-                        'interFEBio.fit',
-                        'interFEBio.MatDef',
-                        'interFEBio.MeshDef',
-                        'interFEBio.Boundary',
-                        'interFEBio.Control',
-                        'interFEBio.Load',
-                        'interFEBio.Model'
-                    ],
-    author = 'Andrés Utrera',
-    author_email = 'andres.utrera@usach.cl',
-    license = 'MIT',
-    #package_data = {'febio': ['examples/*'],},
-    url = 'https://github.com/andresutrera/interFEBio',
-    #download_url = 'https://github.com/andresutrera/interFEBio/....',
-    description = 'Python interface for FEBio',
-    install_requires = [
-        "numpy",],
+    name='interFEBio',
+    version='1.0.0',    
+    description='Python-FEBio interface',
+    url='https://github.com/andresutrera/interfebio',
+    author='Andrés Utrera',
+    author_email='andres.utrera@usach.cl',
+    license='BSD 2-clause',
+    packages=['interFEBio'],
+    install_requires=['numpy'],
+
+    classifiers=[
+        'Programming Language :: Python :: 3',
+    ],
 )

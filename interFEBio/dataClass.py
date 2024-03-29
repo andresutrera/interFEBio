@@ -37,7 +37,8 @@ class sectionAttribs():
             self.attribs[var.name] = var
         else:
             #self.attribs[str(type(var))] = var
-            self.attribs[var.type] = var
+            #self.attribs[var.type] = var
+            self.attribs[id(var)] = var
 
     def fillTree(self,tree):
         for item in self.attribs.values():

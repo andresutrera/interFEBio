@@ -31,6 +31,17 @@ class material():
         self.atr.fillTree(tree)
         return tree
 
+    def addParam(self,parameter=None,attributes=None):
+        for param,value in parameter.items():
+            #print("at material class: ",param)
+            if(isinstance(value,materialBranch)):
+                #print("at material class, is branch: ",param)
+                value.branchType=param
+                self.atr.addAttrib(value) 
+            else:
+                #print("at material class, is param: ",param)
+                self.atr.addAttrib(_var(param,value,attributes) )       
+
 class materialBranch():
     def __init__(self,type:str = None,parameters:dict = None, attributes:dict = None):
 

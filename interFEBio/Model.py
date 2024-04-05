@@ -7,7 +7,6 @@ from . import Mesh,Step,Material,LoadData,Output,Globals,Constraints
 import xml.etree.cElementTree as ET
 
 
-
 class Model():
     """
     Create a model object.
@@ -77,17 +76,41 @@ class Model():
     def addStep(self,stp: Step.Step = None):
         self.Steps.append(stp.tree())
 
-    def addMaterial(self,material:Material = None):
+    def addMaterial(self,material:Material = None, parameters:dict=None):
         self.material.append(material.tree())
-        self.addMeshDomain(material)
-
-    def addMeshDomain(self, material:Material = None):
-        type = self.mshObject.elsets[material.elementSet]['type']
-        if type in ['quad4', 'tri3']:
-            shellDom = ET.SubElement(self.meshDomains, 'ShellDomain', name=material.elementSet, mat=material.name)
-            #ET.SubElement(shellDom, 'shell_normal_nodal').text = '1' ############ This was randomly deleted. Maybe is an error
+        if(parameters is None):
+            print("C")
+            self.addMeshDomain(material)
         else:
-            ET.SubElement(self.meshDomains, 'SolidDomain', name=material.elementSet, mat=material.name)        
+            print("A")
+            self.addMeshDomain(material,parameters=parameters)
+
+    # def addMeshDomain(self, material:Material = None):
+    #     type = self.mshObject.elsets[material.elementSet]['type']
+    #     if type in ['quad4', 'tri3']:
+    #         shellDom = ET.SubElement(self.meshDomains, 'ShellDomain', name=material.elementSet, mat=material.name)
+    #         #ET.SubElement(shellDom, 'shell_normal_nodal').text = '1' ############ This was randomly deleted. Maybe is an error
+    #     else:
+    #         ET.SubElement(self.meshDomains, 'SolidDomain', name=material.elementSet, mat=material.name)        
+
+
+    def addMeshDomain(self, material:Material = None, attributes:dict=None, parameters:dict = None):
+        print(parameters)
+        if(parameters is None):
+            type = self.mshObject.elsets[material.elementSet]['type']
+            if type in ['quad4', 'tri3']:
+                shellDom = ET.SubElement(self.meshDomains, 'ShellDomain', name=material.elementSet, mat=material.name)
+                #ET.SubElement(shellDom, 'shell_normal_nodal').text = '1' ############ This was randomly deleted. Maybe is an error
+            else:
+                ET.SubElement(self.meshDomains, 'SolidDomain', name=material.elementSet, mat=material.name)        
+        else:
+            print("AAAAAAAAAa")
+            type = self.mshObject.elsets[material.elementSet]['type']
+            if type in ['line2']:
+                 beamDomain = ET.SubElement(self.meshDomains, 'BeamDomain',  name=material.elementSet,mat=material.name, type='elastic-truss')
+                 for prop,value in parameters.items():
+                     ET.SubElement(beamDomain, prop).text = str(value)
+
 
     def addLoadData(self, loadData: LoadData = LoadData.loadController()):
         self.loadData.append(loadData.tree())

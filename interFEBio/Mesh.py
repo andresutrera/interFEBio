@@ -94,7 +94,7 @@ class MeshDef(object):
                 name = (i.split()[2].split('"')[1])
                 physicalNames[id] = {'name':name, 'type':dimName[dim]}
 
-                if((dimName[dim] == 'volume' or dimName[dim] == 'surface') and name in self.physicalEntities):
+                if((dimName[dim] == 'volume' or dimName[dim] == 'surface' or dimName[dim] == 'line') and name in self.physicalEntities):
                     self.elsets[str(name)] = {}
                     self.elsets[str(name)]['elements'] = []
                 if(dimName[dim] == 'surface'):
@@ -126,17 +126,20 @@ class MeshDef(object):
                     etype = 'penta6'
                 elif(etypeNum == '2'):
                     etype = 'tri3'
+                elif(etypeNum == '1'):
+                    etype = 'line2'
                 else:
                     if(self.quiet == False):
                         print("Error: Gmsh element type number {} not supported. skipping".format(int(etypeNum)))
                     continue
 
                 if(physicalID in physicalNames):
-                    setname = physicalNames[physicalID]['name']
-                    isVolume = physicalNames[physicalID]['type'] == 'volume'
+                    setname =   physicalNames[physicalID]['name']
+                    isVolume =  physicalNames[physicalID]['type'] == 'volume'
                     isSurface = physicalNames[physicalID]['type'] == 'surface'
+                    isLine =    physicalNames[physicalID]['type'] == 'line'
                     isPhysical = physicalNames[physicalID]['name'] in self.physicalEntities
-                    if((isVolume or isSurface) and isPhysical):
+                    if((isVolume or isSurface or isLine) and isPhysical):
                         self.elementMapping[elemNum] = len(self.elements.keys())
                         elemDict = {}
                         elemDict['type'] = etype

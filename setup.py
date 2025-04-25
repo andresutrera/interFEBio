@@ -1,5 +1,8 @@
 from setuptools import setup
 
+with open('requirements.txt') as f:
+    required = f.read().splitlines()
+
 setup(
     name='interFEBio',
     version='1.0.0',    
@@ -9,7 +12,7 @@ setup(
     author_email='andres.utrera@usach.cl',
     license='BSD 2-clause',
     packages=['interFEBio'],
-    install_requires=['numpy'],
+    install_requires=required,
 
     classifiers=[
         'Programming Language :: Python :: 3',

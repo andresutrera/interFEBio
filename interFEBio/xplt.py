@@ -740,4 +740,6 @@ class mesh():
     #             totalElementDict[elem] = self.domain[key]['elements'][elem]
     #     return totalElementDict
     def __repr__(self) -> str:
-        return("Domains:\t{}\nNodesets:\t{}\nSurfaces:\t{}\nParts:\t\t{}".format(self.domain,self.nodeset,self.parts,self.surface))
+        return("Domains:\t{}\nNodesets:\t{}\nSurfaces:\t{}\nParts:\t\t{}".format(self.domain,self.nodeset,self.surface,self.parts))
+    
+    

@@ -62,6 +62,7 @@ class time_stepper():
         self.atr = sectionAttribs()
         self.atr.addAttrib(_var('max_retries',max_retries) )
         self.atr.addAttrib(_var('opt_iter',opt_iter) )
+        self.atr.addAttrib(_var('dtmin',dtmin) )
         self.atr.addAttrib(_var('dtmax',dtmax) )
         self.atr.addAttrib(_var('aggressiveness',aggressiveness) )
         self.atr.addAttrib(_var('cutback',cutback) )

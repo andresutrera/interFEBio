@@ -17,21 +17,24 @@ import lmfit
 from scipy.interpolate import interp1d
 import xml.etree.ElementTree as ET
 import os
+from shutil import rmtree
 import subprocess
 import threading
 import sys
 import time
 from datetime import datetime
 import psutil
-from sklearn.metrics import r2_score
+from sklearn.metrics import r2_score,mean_squared_error
+from math import sqrt
 import interFEBio
 from scipy.ndimage import interpolation
 import signal
 from scipy import interpolate
+from prettytable import PrettyTable
+
 
 
 class case:
-
     def __init__(self,name = None,modelName=None,matID=None,subFolder=None,expData=None,simFcn=None,weights=None, isTask=False):
 
         self.name = name
@@ -60,8 +63,7 @@ class case:
     def addParameter(self,param):
         self.parameters.append(param)
 
-    def writeCase(self,params,iter):
-
+    def writeCase(self,params,iter,name):
         pars = dict(params.valuesdict())
         tree = self.originalTree
         root = tree.getroot()
@@ -94,25 +96,7 @@ class case:
         for paramTask in self.parameterTask:
             root = self.parameterTask[paramTask](root,pars[paramTask])
 
-        tree.write(os.path.join(self.current_directory, 'iters/iter'+str(iter),self.subFolder)+'/'+self.modelName,encoding='ISO-8859-1', xml_declaration=True)
-
-        # for p in pars.keys():
-        #     if params[p].expr == None:
-        #         tree = originalTree
-        #         root = tree.getroot()
-        #         for material in root.findall('.//material'):
-        #             if(material.attrib['id'] == str(self.matID)):
-        #                 for const in material:
-        #                     #print(const.tag, self.parameters)
-        #                     if(const.tag in self.parameters and const.tag == p):
-        #                         #print(pars[const.tag])
-        #                         const.text = '{:.20e}'.format(pars[const.tag]*(1+0.05)/1000.0)
-        #                     if(const.tag in self.parameters and const.tag != p):
-        #                         const.text = '{:.20e}'.format(pars[const.tag]/1000.0)
-        #                         #print(const.tag,const.text)
-        #         #print(os.path.join(self.current_directory, 'iter'+str(iter),self.subFolder))
-        #         tree.write(os.path.join(self.current_directory, 'iter'+str(iter),self.subFolder,p)+'/'+self.modelName.split('.')[0]+'_'+p+".feb",encoding='ISO-8859-1', xml_declaration=True)
-
+        tree.write(os.path.join(self.current_directory, 'iters/iter'+str(iter),self.subFolder)+'/'+name,encoding='ISO-8859-1', xml_declaration=True)
 
 
     def verifyFolders(self,iter,p):
@@ -125,28 +109,7 @@ class case:
         simDir = os.path.join(iterDir, self.subFolder)
         if not os.path.exists(simDir):
             os.makedirs(simDir)
-        # for par in pars.keys():
-        #     if p[par].expr == None:
-        #         paramPath = os.path.join(simDir, par)
-        #         if not os.path.exists(paramPath):
-        #             os.makedirs(paramPath)
 
-    # def simToFunctions(self,iter,parameter):
-    #     param = parameter.keys()
-    #     stretch,stress = self.rawResults(iter,'')
-    #     funSim = dict()
-    #     funSim['fx'] = interp1d(stretch, stress,fill_value='extrapolate')
-    #     for p in param:
-    #         if parameter[p].expr == None:
-    #             stretch,stress = self.rawResults(iter,p)
-    #             funSim[p] = interp1d(stretch, stress,fill_value='extrapolate')
-    #
-    #     return funSim
-    #
-    # def singleSimToFunction(self,iter):
-    #     stretch,stress = self.rawResults(iter,'')
-    #     funSim = interp1d(stretch, stress,fill_value='extrapolate')
-    #     return funSim
 
     def simResults(self,iter):
         simResults = dict()
@@ -157,6 +120,13 @@ class case:
             simResults[exp] = (x,y)
         return simResults
 
+    def derivativeResults(self,iter,name):
+        simResults = dict()
+        for exp in self.expData:
+            file = 'iters/iter'+str(iter)+'/'+self.subFolder+'/'+name
+            x, y = self.simFcn[exp](self,file)
+            simResults[exp] = (x,y)
+        return simResults
 
 class fit:
     '''
@@ -164,9 +134,9 @@ class fit:
     This class is based on lmfit library.
 
     '''
-    def __init__(self,skip=0):
+    def __init__(self,skip=0,delete=False):
         self.skip=skip
-
+        self.delete=delete
         self.iter = 1
         self.p = lmfit.Parameters()
         self.mi = 0 #Used for saving fit results
@@ -187,6 +157,15 @@ class fit:
         self.done = 0
         self.thisIter = 0
         self.disp1 = dict()
+
+
+        self.parallel = True
+
+        self.bestIter = -1
+        self.bestFitRMSE = 1E9999
+
+        self.preserveBestIter = True
+        self.preserveIters = False
 
 
 
@@ -235,17 +214,25 @@ class fit:
     def _run(self,caso):
 
         p = subprocess.Popen(["febio4 -i "+self.casos[caso].modelName+' -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/')
-        print("\t Running simulation "+os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/'+self.casos[caso].modelName+ ". PID: ",p.pid)
+        print("\tRunning simulation "+os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/'+self.casos[caso].modelName+ ". PID: ",p.pid)
         self.pid[caso] = p.pid
         p.communicate()
         p.wait()
         #sys.exit()
 
+    def _runParallel(self,caso,name):
+
+        p = subprocess.Popen(["febio4 -i "+name+' -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/')
+        print("\tRunning simulation "+os.path.join('iters/iter'+str(self.iter),self.casos[caso].subFolder)+'/'+name+ ". PID: ",p.pid)
+        self.pid[caso] = p.pid
+        p.communicate()
+        p.wait()
+        #sys.exit()
 
     def _runTask(self,caso):
 
         p = subprocess.Popen(["febio4 -i "+self.tasks[caso].modelName+' -o /dev/null'],shell=True, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT,cwd=os.path.join('iters/iter'+str(self.iter),self.tasks[caso].subFolder)+'/')
-        print("\t Running simulation "+os.path.join('iters/iter'+str(self.iter),self.tasks[caso].subFolder)+'/'+self.tasks[caso].modelName+ ". PID: ",p.pid)
+        print("\tRunning simulation "+os.path.join('iters/iter'+str(self.iter),self.tasks[caso].subFolder)+'/'+self.tasks[caso].modelName+ ". PID: ",p.pid)
         self.pidTask[caso] = p.pid
         p.communicate()
         p.wait()
@@ -269,31 +256,169 @@ class fit:
     def _statistics(self,p):
         parameters = dict(p.valuesdict())
         self.r2 = dict()
+        self.RMSE = 0
+        
         for case in self.casos:
             expStatistics = dict()
             for exp in self.casos[case].expData:
-                #print(exp)
-                #print(self.results[case][exp])
+
                 actual = self.expfcn[case][exp](self.results[case][exp][0])
                 predict = self.results[case][exp][1]
-                # print("ACTUAL/PREDICT")
-                # print(actual)
-                # print(predict)
+
                 R_sq = r2_score(actual, predict)
                 expStatistics[exp] = R_sq
+
+                self.RMSE += sqrt(mean_squared_error(actual, predict))
+                if(self.RMSE < self.bestFitRMSE):
+                    self.bestIter = self.iter
+                    self.bestFitRMSE = self.RMSE
+                    self.bestParameters = p
+
 
             self.r2[case] = expStatistics
 
         self.logfile = open(self.logfileName, 'a')
         self.logfile.write('iter '+str(self.iter)+'\t')
         self.logfile.write(datetime.now().strftime("%H:%M:%S")+':\n')
-        self.logfile.write('\t'+'r2 = ')
+        self.logfile.write('\t'+'R-squares: ')
         self.logfile.write(str(self.r2))
         self.logfile.write('\n')
-        self.logfile.write('\t'+'Parameters = ')
-        self.logfile.write(str(parameters))
+        self.logfile.write('\t'+'RMSE: ')
+        self.logfile.write(str(self.RMSE))
+        self.logfile.write('\n')
+
+        t = PrettyTable(['Parameter', 'Value'])
+        for param in p:
+            t.add_row([param, "{0:.15f}".format(p[param].value)])
+        # Add a tab before each line of the table
+        indented_table = "\n".join("\t" + line for line in t.get_string().splitlines())
+        self.logfile.write(indented_table)
+
+
         self.logfile.write('\n')
         self.logfile.close()
+
+    def destroyFolder(self,iter):
+        dir = os.path.join(os.getcwd(), 'iters/iter'+str(iter))
+        print("\tDestroying floder: ",dir)
+        rmtree(dir,ignore_errors=True)
+
+    def Jacobian(self,p):
+
+        
+        print(p)
+        parameters = dict(p.valuesdict())
+        eps = 0.05 ##### EPSILON VALUE
+
+
+        #################################################
+        ############### WRITING SIM FILES ###############
+        toRun = []
+        toRead =  []
+        for caso in self.casos:
+
+            self.casos[caso].verifyFolders(self.iter,p)
+            name = self.casos[caso].modelName
+            toRun.append(name)
+            #toRead.append(self.casos[caso].modelBinary)
+            self.casos[caso].writeCase(p,self.iter,name)
+
+            for param,value in parameters.items():
+                print(p[param].vary)
+                if(p[param].vary == True):
+                    pCopy = p.copy()
+                    pCopy[param].value = p[param].value*(1+eps)
+                    name = self.casos[caso].modelName.split(".feb")[0]+"_"+param+".feb"
+                    binary = self.casos[caso].modelName.split(".feb")[0]+"_"+param+".xplt"
+                    toRun.append(name)
+                    toRead.append(binary)
+                    self.casos[caso].writeCase(pCopy,self.iter,name)
+
+        #################################################
+        ############### WRITING SIM FILES ###############
+
+
+        #################################################
+        ##################### RUN  ######################
+            z = []
+            for fileName in toRun:
+                t = threading.Thread(target=self._runParallel, args=(caso,fileName))
+                t.start()
+                z.append(t)
+            for t in z:
+                t.join()
+        #################################################
+        ##################### RUN  ######################
+
+
+
+        ######################################################################
+        ########################### READ RESULTS #############################
+
+        self._expToFunction()
+        self.results = dict()
+        totResid = []
+
+        totResid = np.array([])
+        
+
+
+
+
+
+
+        for caso in self.casos:
+            residualExp = dict()
+            for exp in self.casos[caso].expData:
+                x, y = self.casos[caso].simResults(self.iter)[exp]
+
+                if(self.iter == 1):
+                    self.len1[caso] = len(x)
+                else:
+                    if(len(x) != self.len1[caso]):
+                        i = self.len1[caso]
+                        z = i / len(x)
+                        x = interpolation.zoom(x,z)
+                        y = interpolation.zoom(y,z)
+                residualExp[exp] = y
+                totResid = np.append(totResid,residualExp[exp])
+
+        nParams = len(toRead)
+        print(nParams)
+
+        jac = []
+        # print("JAC SIZE: ",jac.shape)
+            
+            
+        for i,binary in enumerate(toRead):
+            totResidDerivatives = np.array([])
+            residualDerivatives = dict()
+            for exp in self.casos[caso].expData:
+                x, y = self.casos[caso].derivativeResults(self.iter,binary)[exp]
+                if(len(x) != self.len1[caso]):
+                    i = self.len1[caso]
+                    z = i / len(x)
+                    x = interpolation.zoom(x,z)
+                    y = interpolation.zoom(y,z)
+                residualDerivatives[exp] = y
+                totResidDerivatives = np.append(totResidDerivatives,residualDerivatives[exp])
+
+            jac.append((totResidDerivatives-totResid)/eps)
+        print(jac)
+        jac = np.array(jac)
+        print("JACOBIAN: ",jac.shape)
+        jac=np.ndarray.flatten(jac)
+        print("JACOBIAN: ",jac.shape)
+
+
+        print(jac,totResid.shape[0] )
+        #hes = np.matmul(jac,jac.transpose())
+        #print(hes)
+        return jac
+        
+        ######################################################################
+        ########################### READ RESULTS #############################        
+
 
 
     def _residual(self,p):
@@ -303,19 +428,22 @@ class fit:
 
         self.printIter(p,self.iter)
 
+        # if(self.parallel == False):
+
         for task in self.tasksFcns:
             self.tasks[task].verifyFolders(self.iter,p)
-            self.tasks[task].writeCase(p,self.iter)
+            name = self.tasks[task].modelName
+            self.tasks[task].writeCase(p,self.iter,name)
 
         if(self.iter>self.skip):
-            if(self.iter != 2 and self.iter != 3):
-                z = []
-                for caso in self.tasks:
-                    t = threading.Thread(target=self._runTask, args=(caso,))
-                    t.start()
-                    z.append(t)
-                for t in z:
-                    t.join()
+            #if(self.iter != 2 and self.iter != 3): #### LM methos iters 1,2 and 3 are the same. Why?
+            z = []
+            for caso in self.tasks:
+                t = threading.Thread(target=self._runTask, args=(caso,))
+                t.start()
+                z.append(t)
+            for t in z:
+                t.join()
 
 
         for task in self.tasksFcns:
@@ -325,20 +453,25 @@ class fit:
 
         for caso in self.casos:
             self.casos[caso].verifyFolders(self.iter,p)
-            self.casos[caso].writeCase(p,self.iter)
+            name = self.casos[caso].modelName
+            self.casos[caso].writeCase(p,self.iter,name)
 
 
         if(self.iter>self.skip):
-            if(self.iter != 2 and self.iter != 3):
-                z = []
-                for caso in self.casos:
-                    t = threading.Thread(target=self._run, args=(caso,))
-                    t.start()
-                    z.append(t)
-                for t in z:
-                    t.join()
+            #if(self.iter != 2 and self.iter != 3):#### LM methos iters 1,2 and 3 are the same. Why?
+            z = []
+            for caso in self.casos:
+                t = threading.Thread(target=self._run, args=(caso,))
+                t.start()
+                z.append(t)
+            for t in z:
+                t.join()
 
-        # #sys.exit()
+
+
+        ######################################################################
+        ########################### READ RESULTS #############################
+
         fun = dict()
         residual = dict()
         self._expToFunction()
@@ -350,16 +483,10 @@ class fit:
             simResults = dict()
             residualExp = dict()
             for exp in self.casos[caso].expData:
-                #print("KEY:",exp)
-                if(self.iter <= 3 ): #Ignore sims 2 and 3. they are the same
-                    x, y = self.casos[caso].simResults(1)[exp]
-                else:
-                    x, y = self.casos[caso].simResults(self.iter)[exp]
+                x, y = self.casos[caso].simResults(self.iter)[exp]
                 simResults[exp] = (x,y)
                 if(self.iter == 1):
-                    #print("LEN:",len(x))
                     self.len1[caso] = len(x)
-
                 else:
                     if(len(x) != self.len1[caso]):
                         i = self.len1[caso]
@@ -368,21 +495,39 @@ class fit:
                         y = interpolation.zoom(y,z)
                 residualExp[exp] = -(self.expfcn[caso][exp](x)-y)*self.casos[caso].weights[exp](x)
                 totResid = np.append(totResid,residualExp[exp])
-            #print("atResidual",residualExp)
             self.results[caso] = simResults
-                #self.residual = residual
-                #totResid.append(residual[caso])
-        #print(totResid)
+        ######################################################################
+        ########################### READ RESULTS #############################
 
         self._statistics(p)
+
+        if(self.delete == True):
+            self.removeDirs()
+
+
         return totResid
 
+
+    def removeDirs(self):
+        if(self.iter > 1):
+            if(self.preserveIters == False):
+                dir = os.path.join(os.getcwd(), 'iters')
+                dir_list = os.listdir(dir)
+                dir_list = [int(itr.split("iter")[1]) for itr in dir_list]
+
+                if(self.preserveBestIter == True):
+                    if(self.bestIter in dir_list):
+                        dir_list.remove(self.bestIter)
+                
+                for iter in dir_list:
+                    self.destroyFolder(iter)
+
+
+
     def _per_iteration(self,pars, iter, resid, *args, **kws):
-        #print("ITER ",iter)
-        #print("\t Params:  ",dict(pars.valuesdict()))
         print()
-        print("\t Fitness: ",self.r2)
-        #print()
+        print("\tR-squares: ",self.r2)
+        print("\tRMSE: ",self.RMSE)
         self.printIterFinal()
         self.iter += 1#iter+3
 
@@ -402,9 +547,12 @@ class fit:
         '''
         self._updateParamList()
         self.initMsg()
+
+        # self.Jacobian(self.p)
+
         self.mi = lmfit.minimize(self._residual,
                             self.p,
-                            **dict(kwargs, iter_cb=self._per_iteration)
+                            **dict(kwargs,iter_cb=self._per_iteration)
                             )
         lmfit.printfuncs.report_fit(self.mi.params, min_correl=0.5)
         print(lmfit.fit_report(self.mi))
@@ -421,6 +569,7 @@ class fit:
         #print()
         print("***********************************")
         print("***********************************")
+
 
         for key in self.pid:
             try:
@@ -460,6 +609,14 @@ class fit:
         sys.exit(0)
 
 
+    def printParameters(self,p):
+        t = PrettyTable(['Parameter', 'Value'])
+        for param in p:
+            t.add_row([param, "{0:.15f}".format(p[param].value)])
+        # Add a tab before each line of the table
+        indented_table = "\n".join("\t" + line for line in t.get_string().splitlines())
+        print(indented_table)
+
     def initMsg(self):
         print(" _       _            _____ _____ ____  _      ") 
         print("(_)_ __ | |_ ___ _ __|  ___| ____| __ )(_) ___  ")
@@ -471,8 +628,9 @@ class fit:
     def printIter(self,p,iter):
         print("*************************************************")
         print("ITER ",str(iter))
-        print("\t Current Parameters:")
-        print("\t",dict(p.valuesdict()))
+        print("\tCurrent Parameters:")
+
+        self.printParameters(p)
         print()
 
     def printIterFinal(self):

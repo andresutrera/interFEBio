@@ -3,7 +3,7 @@ Module that defines and provides means for outputting the XML format .feb file.
 
 Creating the object will initialize a skeleton of the model tree
 """
-from . import Mesh,Step,Material,LoadData,Output,Globals,Constraints
+from . import Mesh,Step,Material,LoadData,Output,Globals,Constraints,Control
 import xml.etree.cElementTree as ET
 
 
@@ -52,6 +52,10 @@ class Model():
     def addGlobals(self, globals:Globals = Globals.Constants()):
         self.globals.append(globals.tree())
 
+    def addControl(self, ctrl: Control = Control.Control()):
+        self.root.insert(2, ctrl.tree())
+        #self.control = ctrl.tree()
+
     def addMesh(self,msh: Mesh):
         self.mshObject = msh
         self.mesh.append(msh.getNodeTree()) #Write node tree
@@ -79,10 +83,8 @@ class Model():
     def addMaterial(self,material:Material = None, parameters:dict=None):
         self.material.append(material.tree())
         if(parameters is None):
-            print("C")
             self.addMeshDomain(material)
         else:
-            print("A")
             self.addMeshDomain(material,parameters=parameters)
 
     # def addMeshDomain(self, material:Material = None):
@@ -95,7 +97,6 @@ class Model():
 
 
     def addMeshDomain(self, material:Material = None, attributes:dict=None, parameters:dict = None):
-        print(parameters)
         if(parameters is None):
             type = self.mshObject.elsets[material.elementSet]['type']
             if type in ['quad4', 'tri3']:
@@ -104,7 +105,6 @@ class Model():
             else:
                 ET.SubElement(self.meshDomains, 'SolidDomain', name=material.elementSet, mat=material.name)        
         else:
-            print("AAAAAAAAAa")
             type = self.mshObject.elsets[material.elementSet]['type']
             if type in ['line2']:
                  beamDomain = ET.SubElement(self.meshDomains, 'BeamDomain',  name=material.elementSet,mat=material.name, type='elastic-truss')
@@ -132,6 +132,7 @@ class Model():
         elem = tree.getroot()
         self.__indent(elem,level)
 
+        self.remove_empty_elements(elem)
         #Write XML file
         tree.write(self.modelfile,encoding=self.encode)
 
@@ -153,3 +154,12 @@ class Model():
         else:
             if level and (not elem.tail or not elem.tail.strip()):
                 elem.tail = i
+
+
+    def remove_empty_elements(self,element):
+        for subelement in list(element):  # Use list() to safely iterate while modifying
+            attrs = subelement.attrib
+            # print("Attr: ",attrs)
+            self.remove_empty_elements(subelement)
+            if not subelement.text and len(subelement) == 0 and bool(attrs)==False:  # No text and no children
+                element.remove(subelement)

@@ -1,0 +1,7 @@
+numpy
+matplotlib
+pandas
+lmfit
+psutil
+scikit-learn
+prettytable

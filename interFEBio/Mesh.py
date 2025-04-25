@@ -311,3 +311,9 @@ class MeshDef(object):
             nodesetTrees.append(ET.Element('NodeSet', name=setName))
             nodesetTrees[-1].text = nodes
         return nodesetTrees              
+    
+    def getCentroids(self):
+        print(self.elements)
+
+
+    # def getPVObject(self):

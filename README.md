@@ -1,4 +1,5 @@
 # interFEBio
+> **Archived** This repository is no longer maintained. Optimization features are now developed at https://gitlab.com/autrera-group/pyfebiopt, and preprocessing can be done with other publicly available Python projects.
 ## a python pre/post processor and fitting API for FEBio 
 
 This repository is based on [siboles/pyFEBio repository](https://github.com/siboles/pyFEBio) and [yskmt/feb-vtl-converter](https://github.com/yskmt/feb-vtk-converter). The main modifications are related to update the writing and reading classes to the latest FEBio xml spec version and xplt binary structure.
@@ -24,4 +25,3 @@ The implementation does not have all the features of FEBio, however, they will b
 - Add discrete class
 - Improve the output and logfile handling, allowing to use more flexible types of input/output features of FEBio.
 - Improve the MeshData handling to add more features from FEBio (load data from files or xml trees in a more flexible way)
-
